@@ -1,9 +1,6 @@
 # 1. Allocate node
 salloc --nodes=1 --partition=gpu-rgrant --time=30:00 --constraint=lkb
 
-# 2. Navigate to your test directory
-cd /path/to/power_optimization_tests
-
 
 source ~/minife-env/bin/activate
 
