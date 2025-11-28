@@ -7,7 +7,9 @@ import os
 import signal
 
 # ---------------- CONFIG ----------------
-CMD = ["mpirun", "--oversubscribe", "-np", "4", "./miniMD_openmpi", "-i", "in.lj.miniMD"]
+CMD = ["mpirun", "--oversubscribe", "-np", "4",
+       "./miniMD_openmpi", "-i", "in.lj.miniMD"]
+
 LOG_FILE = "memory_bound_monitor.csv"
 SAMPLE_INTERVAL = 1.0         # seconds
 IPC_THRESHOLD = 0.8           # Below this, CPU is likely memory-bound
@@ -48,7 +50,12 @@ def main():
         writer.writeheader()
 
         # Launch MiniMD in background
-        proc = subprocess.Popen(CMD, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Launch MiniMD silently in background
+        proc = subprocess.Popen(
+            CMD,
+            stdout=subprocess.DEVNULL,   # suppress miniMD stdout
+            stderr=subprocess.DEVNULL    # suppress miniMD stderr
+        )
 
         energy_prev = read_energy()
         time_prev = time.time()
