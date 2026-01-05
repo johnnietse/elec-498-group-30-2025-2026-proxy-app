@@ -16,6 +16,10 @@ IOWAIT_LIMIT = 5.0              # if lots of iowait, don't call it compute
 UTILIZATION_THRESHOLD = 0.8     # thread is busy for 80% of the monitoring interval
 TICKS_IN_INTERVAL = (100 * INTERVAL) 
 MIN_TICKS = TICKS_IN_INTERVAL * UTILIZATION_THRESHOLD
+
+PERF = "/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/perf"
+PERF_INTERVAL = 0.05             # perf sampling interval (seconds)
+
 # ==========================
 
 RAPL_PKG = Path("/sys/class/powercap/intel-rapl:0/energy_uj")
@@ -104,6 +108,46 @@ def read_rapl(prev_energy):
     return watts, energy
 
 
+
+def safe_extract(line):
+    """Return integer or 0 if unsupported."""
+    token = line.split()[0]
+    if token.startswith("<") and token.endswith(">"):
+        return 0  # <not supported>
+    token = token.replace(",", "")
+    return int(token) if token.isdigit() else 0
+
+def read_perf_metrics():
+    try:
+        cmd = [
+        PERF, "stat",
+        "-e", "cycles,instructions,LLC-loads,LLC-load-misses",
+        "sleep", str(PERF_INTERVAL)
+        ]
+        result = subprocess.run(cmd, capture_output=True, text=True)
+
+        cycles = instr = loads = misses = 0
+
+        for line in result.stderr.splitlines():
+            if "cycles" in line:
+                cycles = safe_extract(line)
+            elif "instructions" in line:
+                instr = safe_extract(line)
+            elif "LLC-loads" in line:
+                loads = safe_extract(line)
+            elif "LLC-load-misses" in line:
+                misses = safe_extract(line)
+
+
+        ipc = instr / cycles if cycles > 0 else 0
+        miss_rate = misses / loads if loads > 0 else 0
+
+        return ipc, miss_rate
+    except Exception as e:
+        print(f"[Error] {e}")
+        return 0.0, 0.0
+    
+
 # =====================================================
 #            WAIT FOR miniFE / miniMD TO START
 # =====================================================
@@ -117,6 +161,8 @@ while True:
         break
     time.sleep(1)
 
+# start of application runtime
+application_start = time.time()
 
 # Initialize rank usage tracking
 prev_rank_usage = {}
@@ -210,9 +256,11 @@ while True:
     baseline_val = idle_baseline_w or 0.0
     phase = "IDLE"
 
-    if busy_cores == 1 and watts > baseline_val + POWER_MARGIN_W:
+    ipc,cache_misses = read_perf_metrics()
+
+    if busy_cores == 1 and watts > baseline_val + POWER_MARGIN_W and ipc >= 1.0:
         phase = "SERIAL"
-    elif busy_cores > 1 and watts > baseline_val + POWER_MARGIN_W:
+    elif busy_cores > 1 and watts > baseline_val + POWER_MARGIN_W and ipc >= 1.0:
         phase = "PARALLEL"
     elif busy_cores == 0:
         phase = "IDLE"
@@ -220,7 +268,7 @@ while True:
     # ---- PHASE TRANSITION WITH TIMESTAMP ----
     if "last_phase" not in locals() or phase != last_phase:
         t = round(time.time() - monitor_start, 2)
-        print(f"[phase @ {t:6.2f}s] {phase:8s} | busy={busy_cores}/{total_cores} | watts={watts:.1f}")
+        print(f"[phase @ {t:6.2f}s] {phase:8s} | busy={busy_cores}/{total_cores} | watts={watts:.1f} | IPC=({ipc})")
         last_phase = phase
 
     # maintain timing
@@ -228,3 +276,9 @@ while True:
     sleep_time = INTERVAL - elapsed
     if sleep_time > 0:
         time.sleep(sleep_time)
+
+# end of application runtime
+application_end = time.time()
+
+runtime = application_end - application_start
+print(f"Toatl Runtime: {runtime}")
