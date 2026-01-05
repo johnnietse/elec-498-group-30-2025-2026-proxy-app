@@ -103,6 +103,10 @@ while True:
         time.sleep(1)
         continue
 
+    # # --- skip early startup phase ---
+    # if len(pids) == 1 and time.time() - loop_start < 2:
+    #     continue
+
     rank_usage = {}
     for pid in pids:
         try:
@@ -140,12 +144,14 @@ while True:
         idle_baseline_w = 0.9 * idle_baseline_w + 0.1 * watts
 
     # --- parallel detection rules ---
-    is_parallel = True
-    if busy_cores < needed_cores:
-        is_parallel = False
-    if is_parallel and rapl_ok and idle_baseline_w is not None:
-        if watts < idle_baseline_w + POWER_MARGIN_W:
-            is_parallel = False
+    is_parallel = False  # default
+
+    if total_cores > 1 and busy_cores >= needed_cores:
+        if rapl_ok and idle_baseline_w is not None:
+            if watts >= idle_baseline_w + POWER_MARGIN_W:
+                is_parallel = True
+
+
     with open("/proc/loadavg") as f:
         la1 = float(f.read().split()[0])
     if is_parallel and la1 < 0.01 and busy_cores < needed_cores:
@@ -186,6 +192,32 @@ while True:
             f"watts={watts:.1f}, baseline={baseline_val:.1f}"
         )
         last_hb = now
+    
+    phase = "IDLE"
+
+    baseline_val = idle_baseline_w if idle_baseline_w is not None else 0.0
+    
+    # Serial few cores busy, but power above idle -> single thread ocmpute
+    # if busy_cores < needed_cores and avg_power > baseline_val + POWER_MARGIN_W:
+    #     phase = "SERIAL"
+    if busy_cores == 1 and watts > idle_baseline_w + POWER_MARGIN_W:
+        phase = "SERIAL"
+    # PARALLEL many cores busy and power is above idle
+    elif busy_cores > needed_cores and watts > baseline_val + POWER_MARGIN_W:
+        phase = "PARALLEL"
+    
+    # # I/O: Low power, low utilization, but possibly some activity
+    # elif watts < baseline_val + 3 and busy_cores > 0:
+    #     phase = "I/O"
+
+    # IDLE: no active ranks
+    elif busy_cores == 0:
+        phase = "IDLE"
+    
+    # Print when phase changes
+    if "last_phase" not in locals() or phase != last_phase:
+        print(f"[phase] {phase:8s} | busy={busy_cores}/{total_cores} | watts={watts:.1f}")
+        last_phase = phase
 
     # maintain timing
     elapsed = time.time() - loop_start

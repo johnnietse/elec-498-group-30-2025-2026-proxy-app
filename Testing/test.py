@@ -4,18 +4,14 @@ from pathlib import Path
 import subprocess
 
 # ========= CONFIG =========
-INTERVAL = 0.1                  # seconds between samples
-CORE_BUSY_THRESH = 50           # (unused here but kept for completeness)
-BUSY_FRACTION = 0.25            # require >= this fraction of cores busy (0.5 = half)
-POWER_MARGIN_W = 4.0            # watts above idle to call it "real work"
-STREAK_NEEDED = 2               # consecutive matching samples
+INTERVAL = 0.1               # seconds between samples
+CORE_BUSY_THRESH = 50        # (unused here but kept for completeness)
+BUSY_FRACTION = 0.25         # require >= this fraction of cores busy (0.5 = half)
+POWER_MARGIN_W = 4.0         # watts above idle to call it "real work"
+STREAK_NEEDED = 2            # consecutive matching samples
 CSV_PATH = "parallel_monitor.csv"
 HEARTBEAT_SEC = 5
-IOWAIT_LIMIT = 5.0              # if lots of iowait, don't call it compute
-
-UTILIZATION_THRESHOLD = 0.8     # thread is busy for 80% of the monitoring interval
-TICKS_IN_INTERVAL = (100 * INTERVAL) 
-MIN_TICKS = TICKS_IN_INTERVAL * UTILIZATION_THRESHOLD
+IOWAIT_LIMIT = 5.0           # if lots of iowait, don't call it compute
 # ==========================
 
 RAPL_PKG = Path("/sys/class/powercap/intel-rapl:0/energy_uj")
@@ -127,9 +123,8 @@ print("[run] Monitoring loop entered.")
 # =====================================================
 #                   MAIN MONITORING LOOP
 # =====================================================
-monitor_start = time.time()
+
 while True:
-    
     loop_start = time.time()
     ts = loop_start
 
@@ -158,11 +153,7 @@ while True:
     busy_ranks = 0
     for pid, total_time in rank_usage.items():
         prev_time = prev_rank_usage.get(pid, total_time)
-        delta_ticks = total_time - prev_time
-
-        # only ccount threads that are active for significant portions of the monitroing interval
-        # e.g., in this case at least 8 out of 10 ticks
-        if delta_ticks >= MIN_TICKS:
+        if total_time - prev_time > 0:
             busy_ranks += 1
     prev_rank_usage = rank_usage.copy()
 
@@ -206,21 +197,19 @@ while True:
         )
         last_hb = now
 
-    # PHASE CLASSIFICATION (timestamped)
+    # PHASE CLASSIFICATION
     baseline_val = idle_baseline_w or 0.0
     phase = "IDLE"
 
     if busy_cores == 1 and watts > baseline_val + POWER_MARGIN_W:
         phase = "SERIAL"
-    elif busy_cores > 1 and watts > baseline_val + POWER_MARGIN_W:
+    elif busy_cores > needed_cores and watts > baseline_val + POWER_MARGIN_W:
         phase = "PARALLEL"
     elif busy_cores == 0:
         phase = "IDLE"
 
-    # ---- PHASE TRANSITION WITH TIMESTAMP ----
     if "last_phase" not in locals() or phase != last_phase:
-        t = round(time.time() - monitor_start, 2)
-        print(f"[phase @ {t:6.2f}s] {phase:8s} | busy={busy_cores}/{total_cores} | watts={watts:.1f}")
+        print(f"[phase] {phase:8s} | busy={busy_cores}/{total_cores} | watts={watts:.1f}")
         last_phase = phase
 
     # maintain timing
