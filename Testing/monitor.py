@@ -1,226 +1,163 @@
 #!/usr/bin/env python3
 import time
+import os
 from pathlib import Path
 import subprocess
 
 # ========= CONFIG =========
-INTERVAL = 0.1               # seconds between samples
-CORE_BUSY_THRESH = 50      # a core is "busy" if >= this %
-BUSY_FRACTION = 0.25          # require >= this fraction of cores busy (0.5 = half)
-POWER_MARGIN_W = 4.0         # watts above idle to call it "real work"
-STREAK_NEEDED = 2            # consecutive matching samples
+INTERVAL = 0.5                  
+POWER_MARGIN_W = 1.5            
+STREAK_NEEDED = 2               
 CSV_PATH = "parallel_monitor.csv"
 HEARTBEAT_SEC = 5
-IOWAIT_LIMIT = 5.0           # if lots of iowait, don't call it compute
+
+TICKS_PER_SEC = 100 
+TICKS_IN_INTERVAL = (TICKS_PER_SEC * INTERVAL) 
+IPC_THRESHOLD = 0.15            
+
+THREAD_APP_LIMIT = 0.25         
+THREAD_ACTIVE_LIMIT = 0.05      
+SMOOTHING = 0.5                 
+
+PERF = "/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/perf"
 # ==========================
 
 RAPL_PKG = Path("/sys/class/powercap/intel-rapl:0/energy_uj")
-
-print("[startup] parallel monitor starting...")
-
 rapl_ok = RAPL_PKG.exists()
-if rapl_ok:
-    print(f"[startup] RAPL found at {RAPL_PKG}")
-else:
-    print("[startup] RAPL NOT found, power filter will be skipped")
-
-# CSV header
-with open(CSV_PATH, "w") as f:
-    f.write("ts,cpu_id,usage,iowait_pct,watts\n")
-print(f"[startup] logging to {CSV_PATH}")
-
-# monitor-only mode
-print("[startup] monitor-only mode (run miniFE or other workload in another terminal).")
-
-prev_cpu = {}       # cpu_id -> (total, idle, iowait)
-prev_energy = None
-streak = 0
-last_hb = time.time()
-idle_baseline_w = None   # we'll learn this in the first few samples
 
 def get_minife_pids():
-    """Return list of PIDs for running miniFE processes."""
-    try:
-        out = subprocess.check_output(["pgrep", "miniFE"]).decode().strip()
-        return [int(pid) for pid in out.split()] if out else []
-    except subprocess.CalledProcessError:
-        return []
-    
-def read_proc_stat():
-    """return dict: cpu_id -> (total, idle, iowait)"""
-    cpus = {}
-    with open("/proc/stat") as f:
-        for line in f:
-            if line.startswith("cpu") and line[3].isdigit():
-                parts = line.split()
-                cpu_id = parts[0]
-                user = int(parts[1])
-                nice = int(parts[2])
-                system = int(parts[3])
-                idle = int(parts[4])
-                iowait = int(parts[5])
-                irq = int(parts[6])
-                softirq = int(parts[7])
-                steal = int(parts[8])
-                total = user + nice + system + idle + iowait + irq + softirq + steal
-                cpus[cpu_id] = (total, idle, iowait)
-    return cpus
-
+    pids = []
+    for name in ("miniFE.x", "miniMD.x"): 
+        try:
+            out = subprocess.check_output(["pgrep", "-x", name]).decode().strip()
+            if out: pids += [int(pid) for pid in out.split()]
+        except: pass
+    return pids
 
 def read_rapl(prev_energy):
-    """Compute power (W) from RAPL energy counter."""
-    if not rapl_ok:
-        return 0.0, prev_energy
+    if not rapl_ok: return 0.0, prev_energy
     try:
         energy = int(RAPL_PKG.read_text().strip())
-    except Exception:
-        return 0.0, prev_energy
+        if prev_energy is None: return 0.0, energy
+        delta_uj = energy - prev_energy
+        watts = delta_uj / (1e6 * INTERVAL)
+        return (watts if watts > 0 else 0.0), energy
+    except: return 0.0, prev_energy
 
-    if prev_energy is None:
-        return 0.0, energy
+def read_perf_metrics(pids):
+    if not pids: return 0.0
+    try:
+        pid_to_watch = pids[0]
+        cmd = [PERF, "stat", "-e", "cycles,instructions", "-p", str(pid_to_watch), "--", "sleep", "0.05"]
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=1.2)
+        cycles = instr = 0
+        for line in result.stderr.splitlines():
+            parts = line.strip().split()
+            if not parts: continue
+            val = int(parts[0].replace(",", "")) if parts[0].replace(",", "").isdigit() else 0
+            if "cycles" in line: cycles = val
+            elif "instructions" in line: instr = val
+        return instr / cycles if cycles > 1000 else 0.0
+    except: return 0.0
 
-    delta_uj = energy - prev_energy
-    if delta_uj < 0:
-        delta_uj = 0
-    # convert µJ to J, then divide by interval (J/s = W)
-    watts = delta_uj / (1e6 * INTERVAL)
-    return watts, energy
+phase_stats = {"IDLE": 0, "SERIAL": 0, "PARALLEL": 0, "STALLED/WAIT": 0, "SYNC_OVERHEAD": 0}
 
-
-print("[run] monitoring loop entered. run your OpenMP/MPI miniFE in another shell.")
+print("[startup] monitor starting (Aggressive Parallel Detection)...")
+prev_task_usage = {}
+prev_energy = None
+last_hb = time.time()
+idle_baseline_w = None
+last_phase = "UNKNOWN"
+streak_counter = 0
+smoothed_util = 0.0
+smoothed_apps = 0.0
 
 while True:
-    loop_start = time.time()
-    ts = loop_start
-
-    # --- read power ---
-    watts, prev_energy = read_rapl(prev_energy)
-
-    # --- detect miniFE ranks ---
     pids = get_minife_pids()
-    if not pids:
-        print("[wait] no miniFE processes found; waiting for mpirun...")
-        time.sleep(1)
-        continue
+    if pids: break
+    time.sleep(0.5)
 
-    # # --- skip early startup phase ---
-    # if len(pids) == 1 and time.time() - loop_start < 2:
-    #     continue
+monitor_start = time.time()
 
-    rank_usage = {}
-    for pid in pids:
-        try:
-            with open(f"/proc/{pid}/stat") as f:
-                parts = f.read().split()
-                utime = int(parts[13])
-                stime = int(parts[14])
-                rank_usage[pid] = utime + stime
-        except FileNotFoundError:
-            continue
+try:
+    while True:
+        loop_start = time.time()
+        pids = get_minife_pids()
+        if not pids: break
 
-    # compute deltas
-    if "prev_rank_usage" not in locals():
-        prev_rank_usage = rank_usage.copy()
-        time.sleep(INTERVAL)
-        continue
+        watts, prev_energy = read_rapl(prev_energy)
+        ipc = read_perf_metrics(pids)
+        
+        if idle_baseline_w is None and watts > 10.0: idle_baseline_w = watts
+        baseline_val = idle_baseline_w if idle_baseline_w else 68.0
 
-    busy_ranks = 0
-    for pid, total_time in rank_usage.items():
-        prev_time = prev_rank_usage.get(pid, total_time)
-        if total_time - prev_time > 0:
-            busy_ranks += 1
-    prev_rank_usage = rank_usage.copy()
+        total_util = 0.0
+        app_threads = 0
+        active_helpers = 0
+        current_task_usage = {}
 
-    # --- treat ranks as cores ---
-    busy_cores = busy_ranks
-    total_cores = len(pids)
-    needed_cores = max(1, int(total_cores * BUSY_FRACTION))
+        for pid in pids:
+            task_dir = Path(f"/proc/{pid}/task")
+            if not task_dir.exists(): continue
+            for tid_dir in task_dir.iterdir():
+                tid = tid_dir.name
+                try:
+                    with open(tid_dir / "stat") as f:
+                        parts = f.read().split()
+                        ticks = int(parts[13]) + int(parts[14])
+                        current_task_usage[tid] = ticks
+                        if tid in prev_task_usage:
+                            util = (ticks - prev_task_usage[tid]) / TICKS_IN_INTERVAL
+                            total_util += util
+                            if util >= THREAD_APP_LIMIT: app_threads += 1
+                            elif util >= THREAD_ACTIVE_LIMIT: active_helpers += 1
+                except: continue
+        prev_task_usage = current_task_usage
+        
+        smoothed_util = (SMOOTHING * total_util) + (1 - SMOOTHING) * smoothed_util
+        smoothed_apps = (SMOOTHING * app_threads) + (1 - SMOOTHING) * smoothed_apps
+        eff_apps = round(smoothed_apps)
+        eff_util = smoothed_util
 
-    # learn idle baseline dynamically if not set
-    if idle_baseline_w is None and watts > 1.0:
-        idle_baseline_w = watts
-    elif watts < idle_baseline_w + 2.0:
-        # slowly adapt baseline when under light load
-        idle_baseline_w = 0.9 * idle_baseline_w + 0.1 * watts
+        # --- CLASSIFICATION LOGIC ---
+        is_computing = (watts > baseline_val + POWER_MARGIN_W) or (ipc > IPC_THRESHOLD)
+        
+        if eff_util < 0.15:
+            current_phase = "IDLE"
+        # Check for Parallel via explicit threads OR combined active threads
+        elif app_threads > 1 or eff_apps > 1 or (active_helpers + app_threads >= 2 and is_computing):
+            current_phase = "PARALLEL" if is_computing else "SYNC_OVERHEAD"
+        # Check for Serial
+        elif app_threads == 1 or eff_apps == 1 or eff_util > 0.4:
+            current_phase = "SERIAL" if is_computing else "STALLED/WAIT"
+        else:
+            current_phase = "STALLED/WAIT"
 
-    # --- parallel detection rules ---
-    is_parallel = False  # default
+        phase_stats[current_phase] += INTERVAL
+        
+        if current_phase != last_phase:
+            streak_counter += 1
+            if streak_counter >= STREAK_NEEDED:
+                t = round(time.time() - monitor_start, 2)
+                print(f"[phase @ {t:6.2f}s] {current_phase:15s} | util={total_util:3.1f} | apps={app_threads} | helpers={active_helpers} | IPC={ipc:.2f} | watts={watts:.1f}")
+                last_phase = current_phase
+                streak_counter = 0
+        else: streak_counter = 0
 
-    if total_cores > 1 and busy_cores >= needed_cores:
-        if rapl_ok and idle_baseline_w is not None:
-            if watts >= idle_baseline_w + POWER_MARGIN_W:
-                is_parallel = True
+        if time.time() - last_hb >= HEARTBEAT_SEC:
+            print(f"[hb] util={total_util:.1f}, apps={app_threads}, helpers={active_helpers}, watts={watts:.1f}, ipc={ipc:.2f}")
+            last_hb = time.time()
 
+        time.sleep(max(0, INTERVAL - (time.time() - loop_start)))
 
-    with open("/proc/loadavg") as f:
-        la1 = float(f.read().split()[0])
-    if is_parallel and la1 < 0.01 and busy_cores < needed_cores:
-        is_parallel = False
+except KeyboardInterrupt: pass
 
-    # --- print smart updates ---
-    if "last_busy" not in locals():
-        last_busy, same_count, last_print_time = None, 0, time.time()
-
-    if busy_cores == last_busy:
-        same_count += 1
-        if time.time() - last_print_time > 10:
-            print(f"[Busy Ranks] {busy_cores} (stable {same_count} cycles)")
-            last_print_time = time.time()
-    else:
-        print(f"[Busy Ranks] {busy_cores}")
-        last_busy, same_count, last_print_time = busy_cores, 1, time.time()
-
-    # --- streak logic ---
-    if is_parallel:
-        streak += 1
-        if streak >= STREAK_NEEDED:
-            baseline_val = idle_baseline_w if idle_baseline_w is not None else 0.0
-            print(
-                f"[detect] PARALLEL COMPUTE PHASE "
-                f"(busy={busy_cores}/{total_cores}, watts={watts:.1f}, baseline={baseline_val:.1f})"
-            )
-            streak = 0
-    else:
-        streak = 0
-
-    # --- heartbeat ---
-    now = time.time()
-    if now - last_hb >= HEARTBEAT_SEC:
-        baseline_val = idle_baseline_w if idle_baseline_w is not None else 0.0
-        print(
-            f"[hb] ranks={total_cores}, busy={busy_cores}, need>={needed_cores}, "
-            f"watts={watts:.1f}, baseline={baseline_val:.1f}"
-        )
-        last_hb = now
-    
-    phase = "IDLE"
-
-    baseline_val = idle_baseline_w if idle_baseline_w is not None else 0.0
-    
-    # Serial few cores busy, but power above idle -> single thread ocmpute
-    # if busy_cores < needed_cores and avg_power > baseline_val + POWER_MARGIN_W:
-    #     phase = "SERIAL"
-    if busy_cores == 1 and watts > idle_baseline_w + POWER_MARGIN_W:
-        phase = "SERIAL"
-    # PARALLEL many cores busy and power is above idle
-    elif busy_cores > needed_cores and watts > baseline_val + POWER_MARGIN_W:
-        phase = "PARALLEL"
-    
-    # # I/O: Low power, low utilization, but possibly some activity
-    # elif watts < baseline_val + 3 and busy_cores > 0:
-    #     phase = "I/O"
-
-    # IDLE: no active ranks
-    elif busy_cores == 0:
-        phase = "IDLE"
-    
-    # Print when phase changes
-    if "last_phase" not in locals() or phase != last_phase:
-        print(f"[phase] {phase:8s} | busy={busy_cores}/{total_cores} | watts={watts:.1f}")
-        last_phase = phase
-
-    # maintain timing
-    elapsed = time.time() - loop_start
-    sleep_time = INTERVAL - elapsed
-    if sleep_time > 0:
-        time.sleep(sleep_time)
+print("\n" + "="*35)
+print("     APPLICATION PHASE SUMMARY")
+print("="*35)
+total_monitored = sum(phase_stats.values())
+if total_monitored > 0:
+    for p, val in phase_stats.items():
+        pct = (val / total_monitored) * 100
+        print(f"{p:15s} : {val:6.1f}s ({pct:5.1f}%)")
+print("="*35)
