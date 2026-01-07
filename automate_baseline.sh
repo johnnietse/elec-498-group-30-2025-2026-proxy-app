@@ -4,7 +4,7 @@
 CSV_FILE="simulation_results.csv"
 ENERGY_FILE="/sys/class/powercap/intel-rapl:0/energy_uj"
 MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
-NUM_RUNS=20
+NUM_RUNS=25
 
 # Initialize CSV header if it doesn't exist
 if [ ! -f $CSV_FILE ]; then
