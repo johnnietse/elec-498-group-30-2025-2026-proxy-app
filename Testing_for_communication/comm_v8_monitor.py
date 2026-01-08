@@ -6,6 +6,8 @@ Addresses: power misclassification, context-switch overflow, sync variance,
            compute detection, phase stickiness, and summary bugs
 """
 
+#seems too be okay but still need to fix the identification part; otherwise, the measurements and metrics seem to look ok
+
 import subprocess
 import time
 import csv
@@ -755,4 +757,5 @@ def main():
     return 0
 
 if __name__ == "__main__":
+
     exit(main())
