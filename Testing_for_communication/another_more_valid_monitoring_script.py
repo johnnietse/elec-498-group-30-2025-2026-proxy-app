@@ -1,5 +1,7 @@
 # still need to fix as some of the metrics measured seem to be off
 #!/usr/bin/env python3
+
+# still troubleshooting 
 """
 Production Communication Phase Monitor for miniMD on Frontenac
 Uses /proc-based metrics + RAPL for cluster-compatible monitoring
