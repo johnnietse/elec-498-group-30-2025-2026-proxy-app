@@ -1,6 +1,6 @@
 # communication_monitor.py
 
-# still need to fix it. still need to refer back to the blueprint to double check on what we need to keep track of in terms of measurements
+# still need to fix it. still need to refer back to the blueprint to double check on what we need to keep track of in terms of measurements, so donn't merge it yet
 # still troubleshooting
 
 #!/usr/bin/env python3
