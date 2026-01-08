@@ -24,6 +24,10 @@ SAMPLE_INTERVAL = 0.2  # 200ms for better temporal resolution
 RAPL_PATH = "/sys/class/powercap/intel-rapl:0/energy_uj"
 RAPL_DRAM_PATH = "/sys/class/powercap/intel-rapl:0:0/energy_uj"  # DRAM energy
 
+# Use MPI profiling interface if available
+# Or track MPI function calls via LD_PRELOAD
+MPI_PROFILING_LIB = "libmpitrace.so"  # Example
+
 # Communication phase thresholds (calibrated for miniMD MPI patterns)
 # From miniMD output: t_comm=10.85s / t_total=11.23s = 96.6% in communication!
 POWER_COMM_LOW = 150.0      # Communication phases often <200W (waiting)
