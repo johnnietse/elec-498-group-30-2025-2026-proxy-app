@@ -1,4 +1,4 @@
-# still need to fix as some of the metrics measured seem to be off
+# still need to fix as some of the metrics measured seem to be off, so don't merge it yet
 #!/usr/bin/env python3
 
 # still troubleshooting 
