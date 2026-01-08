@@ -5,6 +5,7 @@ Version 7.0 - Added network monitoring, synchronization detection, and improved 
 Uses /proc-based metrics + RAPL for cluster-compatible monitoring
 Focuses on detecting MPI communication patterns without requiring perf permissions
 """
+#seems too be okay but still need to fix the identification part; otherwise, the measurements and metrics seem to look ok (would be the version to use and look into as this is the best one so far)
 
 import subprocess
 import time
@@ -671,4 +672,5 @@ def main():
     return 0
 
 if __name__ == "__main__":
+
     exit(main())
