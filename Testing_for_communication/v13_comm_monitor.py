@@ -10,6 +10,8 @@ Key features:
 5. Cross-rank comparison capabilities
 """
 
+# safetest bet for now (most recent update and script capable of identifying everything we need for the communication phase now!)
+
 import subprocess
 import time
 import csv
