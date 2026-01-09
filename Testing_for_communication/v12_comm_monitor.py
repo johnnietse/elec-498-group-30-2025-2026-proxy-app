@@ -10,6 +10,8 @@ Key improvements:
 5. Multi-scale analysis for different rank counts
 """
 
+# latest update which appears to have the best results now
+
 import subprocess
 import time
 import csv
