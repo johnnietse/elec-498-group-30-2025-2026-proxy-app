@@ -118,20 +118,13 @@ class IntelligentCommPhaseMonitor:
         self.idle_distribution = []
         self.ctx_distribution = []
         self.sync_distribution = []
-        self.ipc_disribution = []
+        self.ipc_distribution = []
         self.miss_distribution = []
 
         # Handles
         self.handles = {}
-        self._init_perma_handles()
-        self.thread_handles = {}   # tid: open_file_handle
-
-        try:
-            self.stat_handle = open("proc/stat", "r")
-        except Exception as e:
-            print(f"[ERROR] Could not open /proc/stat: {e}")
-            sys.exit(1)
-
+        self._init_perma_handles() # Opens pkg, dram, stat, and net handles
+        self.thread_handles = {}
         self.context_handles = {}
         
         # Expected behavior based on scaling data
@@ -165,22 +158,19 @@ class IntelligentCommPhaseMonitor:
         print(f"[INFO] Detected network interfaces: {self.network_interfaces}")
     
     def _init_perma_handles(self):
-        """Initilize handles for system-wide metrics to minimize syscall overhead"""
-
+        """Open all necessary system handles once."""
         try:
             self.handles['rapl_pkg'] = open(RAPL_PATH, 'r')
-            # open rapl dram if node supports it
             if self.has_dram_rapl:
                 self.handles['rapl_dram'] = open(RAPL_DRAM_PATH, 'r')
-                print(f"[SUCCESS] Opened DRAM energy handle.")
-
             self.handles['stat'] = open("/proc/stat", 'r')
             self.handles['net'] = open("/proc/net/dev", 'r')
             self.governor_handles = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor")
             self.setspeed_handles = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_setspeed")
-            print(f"[SUCESS] Opened application handles!")
+            print("[SUCCESS] Application handles established.")
         except Exception as e:
-            print(f"[WARNING] ERROR opeing handles: {e}")
+            print(f"[ERROR] Failed to open handles: {e}")
+            sys.exit(1)
 
     def refresh_thread_handles(self, pids):
         """Maintain open handles for thread-level stats. Closes dea threads"""
@@ -262,7 +252,7 @@ class IntelligentCommPhaseMonitor:
         self.ctx_distribution.append(ctx_rate)
         self.sync_distribution.append(sync_var)
 
-        self.ipc_disribution.append(ipc)
+        self.ipc_distribution.append(ipc)
         self.miss_distribution.append(miss_rate)
         
         # Keep only recent history
@@ -271,7 +261,7 @@ class IntelligentCommPhaseMonitor:
             self.idle_distribution.pop(0)
             self.ctx_distribution.pop(0)
             self.sync_distribution.pop(0)
-            self.ipc_disribution.pop(0)
+            self.ipc_distribution.pop(0)
             self.miss_distribution.pop(0)
 
         
@@ -294,7 +284,7 @@ class IntelligentCommPhaseMonitor:
                 self.dynamic_thresholds['miss_rate_high_target'] = np.percentile(self.miss_distribution, 75)
                 self.dynamic_thresholds['miss_rate_low_target'] = np.percentile(self.miss_distribution, 25)
 
-                self.dynamic_thresholds['ipc_compute_target'] = np.percentile(self.ipc_disribution, 75)
+                self.dynamic_thresholds['ipc_compute_target'] = np.percentile(self.ipc_distribution, 75)
 
                 
                 # Print threshold updates occasionally
@@ -369,43 +359,25 @@ class IntelligentCommPhaseMonitor:
     #     except: return 0.0
 
     def read_rapl_energy(self, domain="pkg"):
-        """
-        Calculates Power in WATTS for either 'pkg' (the node) or 'dram'
-        uses file handlers and seek to avoud sys call overhead
-        """
-
+        """Calculates Power (Watts) using persistent handles."""
         handle_key = 'rapl_pkg' if domain == "pkg" else 'rapl_dram'
         prev_attr = 'prev_energy' if domain == "pkg" else 'prev_dram_energy'
-
-        # Check to see if handle exists, particular for dram since some nodes may not support it
-        if handle_key not in self.handles:
-            return 0.0
         
+        if handle_key not in self.handles: return 0.0
         try:
-            handle = self.handles[handle_key]
-            handle.seek(0)
-            val = handle.read().strip()
-            if not val: return 0.0
-
-            current_energy = int(val)
-
-            prev_energy_val = getattr(self, prev_attr)
-
-            if prev_energy_val is None:
-                setattr(self, prev_attr, current_energy)
+            h = self.handles[handle_key]
+            h.seek(0)
+            energy = int(h.read().strip())
+            
+            prev_val = getattr(self, prev_attr)
+            if prev_val is None:
+                setattr(self, prev_attr, energy)
                 return 0.0
-
-            # handle the counter wrap-around
-            diff = self.safe_delta(current_energy, prev_energy_val, handle_key)
-
-            # update state for next itr
-            setattr(self, prev_attr, current_energy)
-
-            # Convert from micro joules to watts
+            
+            diff = self.safe_delta(energy, prev_val, handle_key)
+            setattr(self, prev_attr, energy)
             return diff / (1e6 * SAMPLE_INTERVAL)
-        except Exception as e:
-            print(f"[DEBUG] {domain} read error: {e}")
-            return 0.0
+        except: return 0.0
 
     def get_perf_metrics(self, pids):
         if not pids or not os.path.exists(PERF): return 0.0, 0.0
@@ -543,16 +515,14 @@ class IntelligentCommPhaseMonitor:
             return 0.0
     
     def read_proc_stat(self):
-        """Read /proc/stat for system-wide CPU metrics using a persistent file handle"""
+        """Read system-wide CPU stats using persistent handle."""
         try:
-            self.stat_handle.seek(0)
-            line = self.stat_handle.readline()
-
+            self.handles['stat'].seek(0)
+            line = self.handles['stat'].readline()
             parts = line.split()
-            if parts[0] == 'cpu':
-                    return [int(x) for x in parts[1:9]]
-        except Exception as e:
-            print(f"[WARN] Failed to read /proc/stat: {e}")
+            if parts and parts[0] == 'cpu':
+                return [int(x) for x in parts[1:9]]
+        except: pass
         return [0] * 8
     
     def get_proc_context_switches(self, pids):
@@ -989,10 +959,10 @@ class IntelligentCommPhaseMonitor:
         print("[INFO] miniMD detected, starting monitoring...")
         
         # Initialize counters
-        self.prev_energy = self.read_rapl_energy(domain="pkg")
+        self.read_rapl_energy(domain="pkg")
         if self.has_dram_rapl:
-            self.prev_dram_energy = self.read_rapl_energy(domain="rapl_dram")
-        
+            self.read_rapl_energy(domain="dram")
+            
         # Initialize state
         self.prev_proc_stats = self.read_proc_stat()
         self.prev_net_stats = self.read_network_stats()
@@ -1075,7 +1045,7 @@ class IntelligentCommPhaseMonitor:
                     curr_pkg_watts, curr_dram_watts, cpu_usage,
                     voluntary_ctx_rate, len(pids),
                     (net_recv_mbps, net_sent_mbps),
-                    sync_variance_norm, current_time, ipc, miss_rate, self.smoothed_util
+                    sync_variance_norm, current_time, ipc, miss_rate, self.smoothed_util, app_threads
                 )
                 
                 # Track phase duration and DVFS
@@ -1114,8 +1084,8 @@ class IntelligentCommPhaseMonitor:
                     'comm_score_adj': f"{details['comm_score_adj']:.2f}",
                     'comp_score_adj': f"{details['comp_score_adj']:.2f}",
                     'phase_diff': f"{details['phase_diff']:.2f}",
-                    'pkg_energy_J': f"{delta_pkg_energy:.4f}",
-                    'dram_energy_J': f"{delta_dram_energy:.4f}",
+                    # 'pkg_energy_J': f"{delta_pkg_energy:.4f}",
+                    # 'dram_energy_J': f"{delta_dram_energy:.4f}",
                     'reasons': details['reasons']
                 }
                 
@@ -1132,6 +1102,8 @@ class IntelligentCommPhaseMonitor:
                           f"R:{details['active_mpi_ranks']:2d} "
                           f"C:{details['confidence']:.2f} "
                           f"Diff:{details['phase_diff']:+.1f}")
+                # main sampling interval
+                time.sleep(max(0, SAMPLE_INTERVAL - (time.time() - loop_start)))
                 
         except KeyboardInterrupt:
             print("\n[INFO] Monitoring interrupted by user")
@@ -1359,9 +1331,6 @@ class IntelligentCommPhaseMonitor:
         for handle in self.context_handles.values():
             handle.close()
         self.context_handles.clear()
-
-        if hasattr(self, 'stat_handle'):
-            self.stat_handle.close()
 
         # Put the node back into performance
         for g in self.governor_handles:
