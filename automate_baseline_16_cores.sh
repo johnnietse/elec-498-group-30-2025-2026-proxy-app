@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-CSV_FILE="16_cores_simulation_results.csv"
+CSV_FILE="16_cores_simulation_results_${SLURM_JOB_ID:-manual}.csv"
 ENERGY_FILE="/sys/class/powercap/intel-rapl:0/energy_uj"
 MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
 NUM_RUNS=25
@@ -56,8 +56,16 @@ do
     rm .running_$i
     wait $MONITOR_PID
     
+    # 2. POLLING LOOP: Wait up to 30 seconds for the energy file to appear
+    # This happens AFTER END_TIME, so Execution_Time_Sec remains accurate.
+    RETRIES=0
+    while [ ! -s ".energy_tmp_$i" ] && [ $RETRIES -lt 30 ]; do
+        sleep 1
+        ((RETRIES++))
+    done
+    
     # Calculations with error checking
-    if [ -f .energy_tmp_$i ]; then
+    if [ -s .energy_tmp_$i ]; then
         TOTAL_UJ=$(cat .energy_tmp_$i)
         ELAPSED_NS=$((END_TIME - START_TIME))
         

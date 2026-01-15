@@ -11,4 +11,4 @@ lj           force style (lj or eam)
 1.00         density 
 5             reneighboring every this many steps
 2.5 0.10       force cutoff and neighbor skin 
-100            thermo calculation every this many steps (0 = start,end)
+500            thermo calculation every this many steps (0 = start,end)

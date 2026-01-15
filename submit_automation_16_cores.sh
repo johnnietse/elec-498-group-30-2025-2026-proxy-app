@@ -5,7 +5,7 @@
 #SBATCH --ntasks=16                    # Total number of MPI tasks
 #SBATCH --cpus-per-task=1             # Cores per task
 #SBATCH --time=18:00:00               # Max runtime (HH:MM:SS)
-#SBATCH --mem=32G
+#SBATCH --mem=8G
 #SBATCH --partition=gpu-rgrant          # Name of the queue (check your cluster docs)
 #SBATCH --mail-user=20wyvs@queensu.ca
 #SBATCH --mail-type=END,FAIL

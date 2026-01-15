@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Configuration
-CSV_FILE="4_cores_simulation_results_${SLURM_JOB_ID:-manual}.csv"
+CSV_FILE="32_cores_simulation_results_${SLURM_JOB_ID:-manual}.csv"
 ENERGY_FILE="/sys/class/powercap/intel-rapl:0/energy_uj"
 MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
 NUM_RUNS=25
@@ -47,7 +47,7 @@ do
     
     # Run the simulation: capture miniMD physics output to the log file
     echo "--- miniMD Physics Output ---" >> $LOG_FILE
-    mpirun --oversubscribe -np 4 ./miniMD_openmpi -i in.lj.miniMD >> $LOG_FILE 2>&1
+    mpirun --oversubscribe -np 32 ./miniMD_openmpi -i in.lj.miniMD >> $LOG_FILE 2>&1
     
     END_TIME=$(date +%s%N)
     
