@@ -191,16 +191,42 @@ class IntelligentCommPhaseMonitor:
             except Exception as e:
                 print(f"[WARN] Threshold update failed: {e}")
     
+    # def get_miniMD_pids(self):
+    #     """Get PIDs of running miniMD processes"""
+    #     try:
+    #         result = subprocess.run(["pgrep", "-f", "miniMD"],
+    #                               capture_output=True, text=True, timeout=2)
+    #         if result.returncode == 0 and result.stdout.strip():
+    #             return [int(pid) for pid in result.stdout.strip().split()]
+    #     except Exception as e:
+    #         pass
+    #     return []
+
     def get_miniMD_pids(self):
         """Get PIDs of running miniMD processes"""
         try:
             result = subprocess.run(["pgrep", "-f", "miniMD"],
-                                  capture_output=True, text=True, timeout=2)
+                                  capture_output=True, text=True, timeout=5)
             if result.returncode == 0 and result.stdout.strip():
                 return [int(pid) for pid in result.stdout.strip().split()]
-        except Exception as e:
-            pass
-        return []
+            else:
+                # Try alternative method
+                try:
+                    import psutil
+                    return [p.pid for p in psutil.process_iter(['name']) 
+                           if 'miniMD' in p.info['name'].lower()]
+                except ImportError:
+                       pass
+       except subprocess.TimeoutExpired:
+           print("[WARN] pgrep timed out, trying alternative PID detection")
+
+       except Exception as e: 
+           print(f"[WARN] PID detection failed: {e}")
+       return []
+
+
+
+       
     
     def safe_delta(self, current, previous, counter_name=""):
         """Safe delta calculation with counter wrap-around handling"""
