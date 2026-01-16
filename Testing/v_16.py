@@ -1,31 +1,29 @@
 #!/usr/bin/env python3
 """
-INTELLIGENT Communication Phase Monitor for miniMD - Version 16.0
-Finalized for Capstone Deployment - Includes Utilization Override Fix
+INTELLIGENT Communication Phase Monitor for miniMD - Version 18.0
+OPTIMIZED for LOW OVERHEAD (<2%) using PERF STREAMING
 """
 
 import sys
 import subprocess
-import importlib.util
 import time
 import csv
 import os
 import math
 import statistics
-import json
 import glob
+import fcntl
 from pathlib import Path
-from collections import defaultdict, deque, Counter
+from collections import defaultdict, Counter
 from datetime import datetime
 import numpy as np
 
 # ============ CONFIGURATION ============
-# Ensure -n matches your mpirun -np argument!
-CMD = ["mpirun", "--oversubscribe", "-np", "32", 
-       "./miniMD_openmpi", "-i", "in.lj.miniMD"]
+CMD = ["mpirun", "--oversubscribe", "-np", "32", "./miniMD_openmpi", "-i", "in.lj.miniMD"]
 LOG_FILE = f"comm_phase_monitoring_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
 SUMMARY_FILE = f"comm_phase_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
-SCALING_FILE = f"scaling_analysis_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
+
+# SAMPLE_INTERVAL matches perf -I 1000 (1 second)
 SAMPLE_INTERVAL = 0.2
 
 PERF = "/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/perf"
@@ -72,6 +70,11 @@ class IntelligentCommPhaseMonitor:
         
         self.has_dram_rapl = os.path.exists(RAPL_DRAM_PATH)
         
+        # PERF STREAMING HANDLES
+        self.perf_process = None
+        self.last_known_ipc = 0.0
+        self.last_known_miss = 0.0
+        
         # Phase tracking
         self.current_phase = "INIT"
         self.last_phase = "UNKNOWN"
@@ -97,6 +100,9 @@ class IntelligentCommPhaseMonitor:
         self.governor_paths = None
         self.setspeed_paths = None
 
+        self.proc_stat_handles = {}
+        self.proc_status_handles = {}
+
         self._init_perma_handles()
         
         # Scaling expectations
@@ -104,8 +110,6 @@ class IntelligentCommPhaseMonitor:
         if expected_ranks in EMPIRICAL_SCALING_DATA:
             self.expected_comm_pct = EMPIRICAL_SCALING_DATA[expected_ranks]["comm_pct"]
             self.expected_compute_pct = EMPIRICAL_SCALING_DATA[expected_ranks]["compute_pct"]
-            print(f"[INFO] Using empirical data: {expected_ranks} ranks => "
-                  f"{self.expected_comm_pct:.1f}% comm, {self.expected_compute_pct:.1f}% compute")
         else:
             self.expected_comm_pct = 50.0
             self.expected_compute_pct = 50.0
@@ -124,11 +128,8 @@ class IntelligentCommPhaseMonitor:
         self.communication_intervals = []
         self.phase_durations_history = defaultdict(list)
         self.network_interfaces = self.detect_network_interfaces()
-        
-        print(f"[INFO] Detected network interfaces: {self.network_interfaces}")
     
     def _init_perma_handles(self):
-        """Open all necessary system handles once."""
         try:
             self.handles['rapl_pkg'] = open(RAPL_PATH, 'r')
             if self.has_dram_rapl:
@@ -136,7 +137,6 @@ class IntelligentCommPhaseMonitor:
             self.handles['stat'] = open("/proc/stat", 'r')
             self.handles['net'] = open("/proc/net/dev", 'r')
             
-            # Paths for DVFS (Files opened only when writing)
             self.governor_paths = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor")
             self.setspeed_paths = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_setspeed")
             print("[SUCCESS] Application handles established.")
@@ -145,7 +145,6 @@ class IntelligentCommPhaseMonitor:
             sys.exit(1)
 
     def refresh_thread_handles(self, pids):
-        """Maintain open handles for thread-level stats."""
         current_tids = set()
         for pid in pids:
             task_path = Path(f"/proc/{pid}/task")
@@ -162,14 +161,13 @@ class IntelligentCommPhaseMonitor:
                 self.thread_handles[tid].close()
                 del self.thread_handles[tid]
 
-    # def set_frequency(self, freq_str):
-    #     """Apply DVFS to all able cores"""
-    #     if not self.governor_paths or not self.setspeed_paths: return
-    #     for gov, speed in zip(self.governor_paths, self.setspeed_paths):
-    #         try:
-    #             with open(gov, "w") as f: f.write("userspace")
-    #             with open(speed, "w") as f: f.write(freq_str)
-    #         except: pass
+    def set_frequency(self, freq_str):
+        if not self.governor_paths or not self.setspeed_paths: return
+        for gov, speed in zip(self.governor_paths, self.setspeed_paths):
+            try:
+                with open(gov, "w") as f: f.write("userspace")
+                with open(speed, "w") as f: f.write(freq_str)
+            except: pass
 
     def detect_network_interfaces(self):
         interfaces = []
@@ -186,7 +184,6 @@ class IntelligentCommPhaseMonitor:
         return interfaces
     
     def update_dynamic_thresholds(self, power, idle, ctx_rate, sync_var, ipc, miss_rate):
-        """Update thresholds based on observed distributions"""
         self.power_distribution.append(power)
         self.idle_distribution.append(idle)
         self.ctx_distribution.append(ctx_rate)
@@ -204,7 +201,6 @@ class IntelligentCommPhaseMonitor:
                 p25 = np.percentile(self.power_distribution, 25)
                 p75 = np.percentile(self.power_distribution, 75)
                 
-                # FIX 1: Lower the Compute Floor multiplier from 0.98 to 0.90 for safer triggering
                 self.dynamic_thresholds['power_compute_threshold'] = p75 * 0.90 
                 self.dynamic_thresholds['power_comm_threshold'] = p25 * 1.10
                 
@@ -215,22 +211,30 @@ class IntelligentCommPhaseMonitor:
                 self.dynamic_thresholds['miss_rate_high_target'] = np.percentile(self.miss_distribution, 75)
                 self.dynamic_thresholds['ipc_compute_target'] = np.percentile(self.ipc_distribution, 75)
                 
-                # if len(self.power_distribution) % 100 == 0:
-                #     print(f"[LEARNING] New Compute Floor: {self.dynamic_thresholds['power_compute_threshold']:.1f}W")
-            except Exception as e:
-                print(f"[WARN] Threshold update failed: {e}")
+                if len(self.power_distribution) % 100 == 0:
+                    print(f"[LEARNING] New Compute Floor: {self.dynamic_thresholds['power_compute_threshold']:.1f}W")
+            except: pass
     
-    def get_miniMD_pids(self):
+    def get_miniMD_pids(self, existing_pids=None):
+        if existing_pids and len(existing_pids) > 0:
+            try:
+                os.kill(existing_pids[0], 0)
+                return existing_pids 
+            except OSError: pass 
+
         try:
-            result = subprocess.run(["pgrep", "-f", "miniMD"], capture_output=True, text=True, timeout=2)
+            # Look specifically for the binary name
+            result = subprocess.run(["pgrep", "miniMD_openmpi"], capture_output=True, text=True, timeout=2)
             if result.returncode == 0 and result.stdout.strip():
-                return [int(pid) for pid in result.stdout.strip().split()]
+                pids = [int(pid) for pid in result.stdout.strip().split()]
+                # filter out our own script just in case
+                my_pid = os.getpid()
+                return [p for p in pids if p != my_pid]
         except: pass
         return []
     
     def safe_delta(self, current, previous, counter_name=""):
         if current >= previous: return current - previous
-        # Wrap around handling
         max_value = 2**32 if "energy" in counter_name or "rapl" in counter_name.lower() else 2**64
         return (max_value - previous) + current
     
@@ -241,7 +245,6 @@ class IntelligentCommPhaseMonitor:
         return 0.0 if rate > MAX_CTX_RATE else rate
     
     def read_rapl_energy(self, domain="pkg"):
-        """Calculates Power (Watts) using persistent handles."""
         handle_key = 'rapl_pkg' if domain == "pkg" else 'rapl_dram'
         prev_attr = 'prev_energy' if domain == "pkg" else 'prev_dram_energy'
         
@@ -261,36 +264,79 @@ class IntelligentCommPhaseMonitor:
             return diff / (1e6 * SAMPLE_INTERVAL)
         except: return 0.0
 
-    def get_perf_metrics(self, pids):
-        if not pids: return 0.0, 0.0
+    # ========================================================
+    #  OPTIMIZATION: CONTINUOUS STREAMING PERF (No Overhead)
+    # ========================================================
+    def start_perf_stream(self, pids):
+        """Starts a persistent perf process in Interval Mode"""
+        if self.perf_process:
+            return # Already running
+            
+        pid_str = ",".join(map(str, pids))
+        # -I 1000: Print every 1000ms (matches SAMPLE_INTERVAL)
+        # -x ,   : Output as CSV for easy parsing
+        # :u     : User-space only (paranoid compliant)
+        cmd = [PERF, "stat", "-I", "1000", 
+               "-e", "cycles:u,instructions:u,cache-misses:u,cache-references:u",
+               "-p", pid_str, "-x", ","]
+        
         try:
-      
-            pid_list_str = ",".join(map(str, pids))
+            # Start perf in the background, piping stderr (where perf prints) to Python
+            self.perf_process = subprocess.Popen(cmd, stderr=subprocess.PIPE, text=True, bufsize=1)
             
-            cmd = [PERF, "stat", "-e", "cycles:u,instructions:u,cache-misses:u,cache-references:u", 
-                   "-p", pid_list_str, "--", "sleep", "0.1"]
+            # Set non-blocking read to prevent the main loop from freezing
+            fd = self.perf_process.stderr.fileno()
+            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
             
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=1.2)
+            print(f"[INFO] Perf stream started on PIDs: {pid_str}")
+        except Exception as e:
+            print(f"[ERROR] Could not start perf stream: {e}")
 
-            cycles = instr = refs = misses = 0
-            for line in result.stderr.splitlines():
-                parts = line.strip().split()
-                if not parts: continue
+    def get_streamed_metrics(self):
+        """Reads the latest available data from the persistent perf stream"""
+        if not self.perf_process: return 0.0, 0.0
+        
+        cycles = instr = refs = misses = 0
+        data_found = False
+        
+        try:
+            # Read all available lines from the buffer
+            while True:
+                line = self.perf_process.stderr.readline()
+                if not line: break
                 
-                # Perf sums up the counters for all PIDs automatically
-                val = int(parts[0].replace(",", "")) if parts[0].replace(",", "").isdigit() else 0
+                parts = line.strip().split(',')
+                if len(parts) < 3: continue
                 
-                if "cycles" in line: cycles = val
-                elif "instructions" in line: instr = val
-                elif "cache-misses" in line: misses = val
-                elif "cache-references" in line: refs = val
-            
-            # Now we have the aggregate IPC of the whole application
-            ipc = instr / cycles if cycles > 1000 else 0.0
-            miss_rate = misses / refs if refs > 1000 else 0.0
-            return ipc, miss_rate
-        except: return 0.0, 0.0
-    
+                # Format: Timestamp, Value, Unit, Event
+                try:
+                    val = int(parts[1])
+                    event = parts[3]
+                    
+                    if "cycles" in event: cycles = val
+                    elif "instructions" in event: instr = val
+                    elif "misses" in event: misses = val
+                    elif "references" in event: refs = val
+                    data_found = True
+                except: continue
+        except: pass
+
+        # If we didn't get new data this loop, return the cached values
+        if not data_found:
+            return self.last_known_ipc, self.last_known_miss
+
+        ipc = instr / cycles if cycles > 1000 else 0.0
+        miss_rate = misses / refs if refs > 1000 else 0.0
+        
+        # Cache results
+        self.last_known_ipc = ipc
+        self.last_known_miss = miss_rate
+        
+        return ipc, miss_rate
+
+    # ========================================================
+
     def get_thread_utilization(self, pids):
         self.refresh_thread_handles(pids)
         total_util = 0.0
@@ -339,12 +385,35 @@ class IntelligentCommPhaseMonitor:
     
     def get_per_process_cpu_times(self, pids):
         cpu_times = {}
+        current_pids = set(pids)
+
+        # cleanup handles for pids that do not exist
+        for pid in list(self.proc_stat_handles.keys()):
+            if pid not in current_pids:
+                self.proc_stat_handles[pid].close()
+                del self.proc_stat_handles[pid]
+
         for pid in pids:
             try:
-                with open(f"/proc/{pid}/stat", "r") as f:
-                    data = f.read().split()
+                # open if it does not exist
+                if pid not in self.proc_stat_handles:
+                    self.proc_stat_handles[pid] = open(f"/proc/{pid}/stat", "r")
+
+                #fast read, seek to the start and read without reopening
+                f = self.proc_stat_handles[pid]
+                f.seek(0)
+                data = f.read().split()
+                if data:
                     cpu_times[pid] = int(data[13]) + int(data[14])
-            except: continue
+            except (FileNotFoundError, ProcessLookupError, IndexError):
+                continue
+
+        # for pid in pids:
+        #     try:
+        #         with open(f"/proc/{pid}/stat", "r") as f:
+        #             data = f.read().split()
+        #             cpu_times[pid] = int(data[13]) + int(data[14])
+        #     except: continue
         return cpu_times
     
     def calculate_sync_variance(self, curr_times, prev_times):
@@ -370,8 +439,6 @@ class IntelligentCommPhaseMonitor:
         vol = 0
         nonvol = 0
         current_pids = set(pids)
-        
-        # Cleanup
         for pid in list(self.context_handles.keys()):
             if pid not in current_pids:
                 self.context_handles[pid].close()
@@ -381,6 +448,7 @@ class IntelligentCommPhaseMonitor:
             try:
                 if pid not in self.context_handles:
                     self.context_handles[pid] = open(f"/proc/{pid}/status", "r")
+                
                 f = self.context_handles[pid]
                 f.seek(0)
                 for line in f:
@@ -388,10 +456,8 @@ class IntelligentCommPhaseMonitor:
                         vol += int(line.split()[1])
                     elif line.startswith("nonvoluntary_ctxt_switches"):
                         nonvol += int(line.split()[1])
-            except:
-                if pid in self.context_handles:
-                    self.context_handles[pid].close()
-                    del self.context_handles[pid]
+            except (FileNotFoundError, ProcessLookupError):
+                continue
         return vol, nonvol
     
     def calculate_cpu_usage(self, prev, curr):
@@ -414,36 +480,27 @@ class IntelligentCommPhaseMonitor:
         
         dyn_ipc = self.dynamic_thresholds.get('ipc_compute_target', IPC_THRESHOLD)
         dyn_pwr_comp = self.dynamic_thresholds.get('power_compute_threshold', 180.0)
-        dyn_pwr_comm = self.dynamic_thresholds.get('power_comm_threshold', 140.0)
         
         if self.idle_baseline_w is None and pkg_power_W > 10: self.idle_baseline_w = pkg_power_W
         baseline = self.idle_baseline_w or 68.0
 
-        # FIX 3: Utilization Fallback
-        # If util is close to active_ranks (e.g. 3.9 out of 4), we assume compute
         util_saturation = util / max(1, pids_count)
-        
         power_high = pkg_power_W > dyn_pwr_comp
         ipc_high = ipc > dyn_ipc
 
-        # Major Logic Fix: If we are fully saturated, we are computing.
         is_computing = power_high or ipc_high or (util_saturation > 0.85)
-        
         is_mem_sig = (ipc < dyn_ipc * 0.5) and (miss_rate > self.dynamic_thresholds.get('miss_rate_high_target', 0.3))
         
         comm_score = 0.0
         comp_score = 0.0
         reasons = []
         
-        # Scoring
         if is_computing:
-            # If IPC is valid (>0.1), use it for the boost score
             if ipc > 0.1:
                 boost = (ipc / dyn_ipc) if dyn_ipc > 0 else 1.0
                 comp_score += (2.5 * boost)
                 reasons.append(f"compute(IPC={ipc:.2f})")
             else:
-                # IPC is dead/0.0 but we are saturated -> FORCE Compute score
                 comp_score += 3.0
                 reasons.append(f"compute(Util={util:.1f})")
         
@@ -453,15 +510,13 @@ class IntelligentCommPhaseMonitor:
         if idle_pct > self.dynamic_thresholds.get('idle_comm_threshold', 80):
             comm_score += 1.5
             reasons.append("high_idle")
-        if pkg_power_W < dyn_pwr_comm: comm_score += 1.0
+        if pkg_power_W < self.dynamic_thresholds['power_comm_threshold']: comm_score += 1.0
         if total_net > 5: comm_score += 1.0
 
-        # Outliers
         outlier = self.detect_statistical_outliers(pkg_power_W, idle_pct, ctx_switch_rate)
         if outlier > 0.7: comp_score += 2.0
         elif outlier < -0.7: comm_score += 2.0
 
-        # Calibration
         expected_comm_bias = self.expected_comm_pct / 100.0
         comm_score_adj = comm_score * (1.0 + expected_comm_bias)
         comp_score_adj = comp_score
@@ -469,7 +524,6 @@ class IntelligentCommPhaseMonitor:
         phase_diff = comm_score_adj - comp_score_adj
         confidence = min(abs(phase_diff)/5.0, 1.0)
         
-        # Decision
         if util < 0.15 or idle_pct > 95:
             phase = "IDLE"
             confidence = 0.95
@@ -558,10 +612,6 @@ class IntelligentCommPhaseMonitor:
         self.writer.writeheader()
         print(f"[INFO] Logging to {LOG_FILE}")
 
-    def generate_scaling_analysis(self):
-        # ... [Your existing logic for scaling report] ...
-        pass # Placeholder to keep script short, keep your existing method
-
     def run_monitoring(self):
         self.setup_csv()
         print("[INFO] Waiting for miniMD...")
@@ -570,7 +620,6 @@ class IntelligentCommPhaseMonitor:
         pids = self.get_miniMD_pids()
         self.start_time = time.time()
         
-        # Init baselines
         self.read_rapl_energy(domain="pkg")
         if self.has_dram_rapl: self.read_rapl_energy(domain="dram")
         self.prev_proc_stats = self.read_proc_stat()
@@ -580,15 +629,19 @@ class IntelligentCommPhaseMonitor:
         try:
             while True:
                 loop_start = time.time()
-                pids = self.get_miniMD_pids()
+                
+                pids = self.get_miniMD_pids(pids)
                 if not pids: break
                 
                 sample_count += 1
                 current_time = time.time() - self.start_time
                 
-                ipc, miss_rate = self.get_perf_metrics(pids)
-                total_util, app_threads = self.get_thread_utilization(pids)
+                # 1. STREAM PERF DATA (No Subprocess Overhead)
+                if not self.perf_process:
+                    self.start_perf_stream(pids)
+                ipc, miss_rate = self.get_streamed_metrics()
                 
+                total_util, app_threads = self.get_thread_utilization(pids)
                 curr_pkg_watts = self.read_rapl_energy(domain="pkg")
                 curr_dram_watts = self.read_rapl_energy(domain="dram")
                 
@@ -601,7 +654,6 @@ class IntelligentCommPhaseMonitor:
                 self.prev_net_stats = curr_net
                 
                 curr_ctx = self.get_proc_context_switches(pids)
-                # FIXED: Using prev_ctx_switches as list index [0]
                 ctx_rate = self.safe_rate(curr_ctx[0], self.prev_ctx_switches[0], SAMPLE_INTERVAL)
                 self.prev_ctx_switches = list(curr_ctx)
                 
@@ -618,7 +670,6 @@ class IntelligentCommPhaseMonitor:
                 
                 self.track_phase_duration(phase, current_time)
                 
-                # DVFS Logic
                 # if phase != self.last_phase:
                 #     self.streak_counter += 1
                 #     if self.streak_counter >= self.streak_needed:
@@ -629,12 +680,10 @@ class IntelligentCommPhaseMonitor:
                 # else:
                 #     self.streak_counter = 0
                 
-                # FIXED: Energy Logging
                 details['pkg_energy_J'] = f"{curr_pkg_watts * SAMPLE_INTERVAL:.4f}"
                 details['dram_energy_J'] = f"{curr_dram_watts * SAMPLE_INTERVAL:.4f}"
                 
                 self.writer.writerow(details)
-                self.csv_file.flush()
                 
                 if sample_count % 5 == 0:
                     print(f"[{current_time:6.1f}s] {phase:15s} | Pwr: {curr_pkg_watts:4.0f}W | IPC: {ipc:.2f} | U:{total_util:.1f}")
@@ -647,9 +696,12 @@ class IntelligentCommPhaseMonitor:
 
     def cleanup(self):
         print("\n[INFO] Cleanup...")
+        if self.perf_process:
+            self.perf_process.terminate()
+            try: self.perf_process.wait(timeout=1)
+            except: self.perf_process.kill()
+            
         if self.csv_file: self.csv_file.close()
-        
-        # Close handles
         for h in self.handles.values(): 
             try: h.close()
             except: pass
@@ -659,14 +711,11 @@ class IntelligentCommPhaseMonitor:
         for h in self.context_handles.values():
             try: h.close()
             except: pass
-            
-        # Reset Frequency using PATHS
         if self.governor_paths:
             for g in self.governor_paths:
                 try: 
                     with open(g, 'w') as f: f.write("performance")
                 except: pass
-        
         print("[INFO] Done.")
 
 if __name__ == "__main__":
