@@ -66,7 +66,7 @@ POWER_MARGIN_W = 2
 # Classification Thresholds
 IPC_THRESHOLD = 1.6
 MISS_THRESHOLD = 0.30
-POWER_MARGIN_THRESHOLD = 1.5
+POWER_MARGIN_THRESHOLD = 2.0
 TICKS_PER_SECOND = 100
 THREAD_APP_LIMIT = 0.25
 
@@ -92,9 +92,11 @@ class IntelligentCommPhaseMonitor:
         self.start_time = None
         self.prev_energy = None
         self.prev_task_usage = {}
+
         self.smoothed_util = 0.0
         self.smoothed_apps = 0.0
         self.smoothing_factor = 0.3
+
         self.prev_dram_energy = None
         self.prev_proc_stats = {}
         self.prev_net_stats = {}
@@ -110,7 +112,6 @@ class IntelligentCommPhaseMonitor:
         self.streak_needed = 2
         self.phase_start_time = None
         self.phase_stats = defaultdict(lambda: {"time": 0.0, "samples": 0, "transitions": 0})
-        self.phase_sequence = []  # Track phase sequence for pattern analysis
         self.idle_baseline_w = None
         
         # Runtime learning system
@@ -120,12 +121,17 @@ class IntelligentCommPhaseMonitor:
         self.sync_distribution = []
         self.ipc_distribution = []
         self.miss_distribution = []
+        self.phase_sequence = []  # Track phase sequence for pattern analysis
 
         # Handles
         self.handles = {}
-        self._init_perma_handles() # Opens pkg, dram, stat, and net handles
         self.thread_handles = {}
         self.context_handles = {}
+
+        self.governor_paths = None
+        self.setspeed_paths = None
+
+        self._init_perma_handles() # Opens pkg, dram, stat, and net handles
         
         # Expected behavior based on scaling data
         self.expected_ranks = expected_ranks
@@ -165,8 +171,8 @@ class IntelligentCommPhaseMonitor:
                 self.handles['rapl_dram'] = open(RAPL_DRAM_PATH, 'r')
             self.handles['stat'] = open("/proc/stat", 'r')
             self.handles['net'] = open("/proc/net/dev", 'r')
-            self.governor_handles = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor")
-            self.setspeed_handles = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_setspeed")
+            self.governor_paths = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor")
+            self.setspeed_paths = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_setspeed")
             print("[SUCCESS] Application handles established.")
         except Exception as e:
             print(f"[ERROR] Failed to open handles: {e}")
@@ -193,7 +199,7 @@ class IntelligentCommPhaseMonitor:
 
     def set_frequency(self, freq_str):
         """Apply DVFS to all able cores"""
-        for gov, speed in zip (self.governor_handles, self.setspeed_handles):
+        for gov, speed in zip (self.governor_paths, self.setspeed_paths):
             try:
                 with open(gov, "w") as f: f.write("userspace")
                 with open(speed, "w") as f: f.write(freq_str)
@@ -257,35 +263,32 @@ class IntelligentCommPhaseMonitor:
         
         # Keep only recent history
         if len(self.power_distribution) > 100:
-            self.power_distribution.pop(0)
-            self.idle_distribution.pop(0)
-            self.ctx_distribution.pop(0)
-            self.sync_distribution.pop(0)
-            self.ipc_distribution.pop(0)
-            self.miss_distribution.pop(0)
+            for dist in [self.power_distribution, self.idle_distribution, self.ctx_distribution, 
+                         self.sync_distribution, self.ipc_distribution, self.miss_distribution]:
+                dist.pop(0)
 
         
         # Update thresholds periodically
         if len(self.power_distribution) >= 20 and len(self.power_distribution) % 20 == 0:
             try:
                 # Calculate percentiles
-                power_25 = np.percentile(self.power_distribution, 25)
-                power_75 = np.percentile(self.power_distribution, 75)
-                idle_25 = np.percentile(self.idle_distribution, 25)
-                idle_75 = np.percentile(self.idle_distribution, 75)
-                ctx_75 = np.percentile(self.ctx_distribution, 75)
+              # 1. Power Thresholds
+                p25, p75 = np.percentile(self.power_distribution, [25, 75])
+                self.dynamic_thresholds['power_comm_threshold'] = p25 * 1.10 # 10% higher then p25
+                self.dynamic_thresholds['power_compute_threshold'] = p75 * 0.98 # 2% buffer below p75
                 
-                # Adjust thresholds based on distributions
-                self.dynamic_thresholds['power_comm_threshold'] = power_25 * 0.9
-                self.dynamic_thresholds['power_compute_threshold'] = power_75 * 1.1
-                self.dynamic_thresholds['idle_comm_threshold'] = idle_75 * 0.95
-                self.dynamic_thresholds['ctx_comm_threshold'] = ctx_75 * 0.8
+                # 2. System Activity Thresholds
+                self.dynamic_thresholds['idle_comm_threshold'] = np.percentile(self.idle_distribution, 75)
+                self.dynamic_thresholds['ctx_comm_threshold'] = np.percentile(self.ctx_distribution, 75) * 0.8
+                
+                # 3. New: Sync Variance Learning
+                # We learn what 'High Imbalance' looks like for this specific network/job
+                self.dynamic_thresholds['sync_compute_threshold'] = np.percentile(self.sync_distribution, 75)
+                self.dynamic_thresholds['sync_comm_threshold'] = np.percentile(self.sync_distribution, 25)
 
+                # 4. Micro-arch Learning
                 self.dynamic_thresholds['miss_rate_high_target'] = np.percentile(self.miss_distribution, 75)
-                self.dynamic_thresholds['miss_rate_low_target'] = np.percentile(self.miss_distribution, 25)
-
                 self.dynamic_thresholds['ipc_compute_target'] = np.percentile(self.ipc_distribution, 75)
-
                 
                 # Print threshold updates occasionally
                 if len(self.power_distribution) % 100 == 0:
@@ -360,6 +363,7 @@ class IntelligentCommPhaseMonitor:
 
     def read_rapl_energy(self, domain="pkg"):
         """Calculates Power (Watts) using persistent handles."""
+
         handle_key = 'rapl_pkg' if domain == "pkg" else 'rapl_dram'
         prev_attr = 'prev_energy' if domain == "pkg" else 'prev_dram_energy'
         
@@ -590,30 +594,28 @@ class IntelligentCommPhaseMonitor:
         """
         user_pct, system_pct, idle_pct, iowait_pct = cpu_metrics
         net_recv_mbps, net_sent_mbps = network_bw
-        
-        active_cpu = 100.0 - idle_pct
+        active_cpu = 100.0 - idle_pct       
         total_net_bw = net_recv_mbps + net_sent_mbps
         
-        # Update dynamic thresholds with current observations
+        # 1. Update learning
         self.update_dynamic_thresholds(pkg_power_W, idle_pct, ctx_switch_rate, sync_variance_norm, ipc, miss_rate)
-
-        # Get all of the dynamic targets
+        
+        # 2. Get all of the dynamic targets
         dyn_miss_threshold = self.dynamic_thresholds.get('miss_rate_high_target', MISS_THRESHOLD)
         dyn_ipc_target = self.dynamic_thresholds.get('ipc_compute_target', IPC_THRESHOLD)
-
-        dyn_pwr_comm = self.dynamic_thresholds.get('power_comm_threshold', 140.0)
         dyn_pwr_compute = self.dynamic_thresholds.get('power_compute_threshold', 180.0)
+        dyn_pwr_comm = self.dynamic_thresholds.get('power_comm_threshold', 140.0)
         dyn_idle_comm = self.dynamic_thresholds.get('idle_comm_threshold', 80.0)
         dyn_ctx_comm = self.dynamic_thresholds.get('ctx_comm_threshold', 1000)
 
-
         if self.idle_baseline_w is None and pkg_power_W > 10: self.idle_baseline_w = pkg_power_W
-        baseline = self.idle_baseline_w or 68
+        baseline = self.idle_baseline_w or 68.0
 
+        # 3. Establish anchor flags
         is_computing = (pkg_power_W > baseline + POWER_MARGIN_W) or (ipc > dyn_ipc_target)
         is_mem_sig = (ipc < dyn_ipc_target * 0.5) and (miss_rate > dyn_miss_threshold)
         
-        # Algorithm 1: Rule-based scoring (traditional approach)
+        # 4. Calculate Scores
         comm_score = 0.0
         comp_score = 0.0
         reasons = []
@@ -622,7 +624,7 @@ class IntelligentCommPhaseMonitor:
         # -------------------- COMP SCORES --------------------------
         if is_computing:
             boost = (ipc / dyn_ipc_target) if dyn_ipc_target > 0 else 1.0
-            comp_score += (2.0 * boost)
+            comp_score += (2.5 * boost)
             reasons.append(f"computesig(RelIPC={boost:.1f})")
         
         if active_cpu > 20:
@@ -633,7 +635,6 @@ class IntelligentCommPhaseMonitor:
             comp_score += 1.5
             reasons.append(f"high_pwr={pkg_power_W:.0f}W")
         
-        # Zaner there is no synch varience calc need to add that to dyn thresholding
         if sync_variance_norm > self.dynamic_thresholds['sync_compute_threshold']:
             comp_score += 0.5
             reasons.append(f"high_sync={sync_variance_norm:.1f}%")
@@ -650,29 +651,25 @@ class IntelligentCommPhaseMonitor:
             comm_score += 1.0 + (idle_pct - dyn_idle_comm) / 20.0
             reasons.append(f"high_idle={idle_pct:.0f}%")
         
-        if pkg_power_W < dyn_pwr_compute:
+        if pkg_power_W < dyn_pwr_comm:
             comm_score += 1.0
             reasons.append(f"low_pwr={pkg_power_W:.0f}W")
         
         if ctx_switch_rate > dyn_ctx_comm:
             comm_score += 1.0
             reasons.append(f"high_ctx={ctx_switch_rate:.0f}/s")
-         # Zaner there is no synch varience calc need to add that to dyn thresholding
+
         if sync_variance_norm < self.dynamic_thresholds['sync_comm_threshold']:
             comm_score += 0.5
             reasons.append(f"low_sync={sync_variance_norm:.1f}%")
 
-        
         if total_net_bw > 5:
             comm_score += 1.0
             reasons.append(f"net_bw={total_net_bw:.1f}MB/s")
         
-        # Algorithm 2: Pattern-based recognition
-        phase_pattern_score = self.analyze_phase_patterns(timestamp)
         
-        # Algorithm 3: Statistical outlier detection
+        # 4. Outlier detection
         outlier_score = self.detect_statistical_outliers(pkg_power_W, idle_pct, ctx_switch_rate)
-        
         # Combine algorithms with weights
         if outlier_score > 0.7:
             # Statistical outlier suggests compute
@@ -683,7 +680,7 @@ class IntelligentCommPhaseMonitor:
             comm_score += 2.0
             reasons.append("statistical_outlier")
         
-        # Phase decision with empirical calibration
+        # 5. Determine phases using outlier adjusted scores
         phase = "MIXED"
         confidence = 0.0
         
@@ -695,39 +692,57 @@ class IntelligentCommPhaseMonitor:
         comm_score_adj = comm_score * (1.0 + expected_comm_bias)
         comp_score_adj = comp_score * (1.0 + expected_comp_bias)
         
-        # Determine phase with hysteresis
-        phase_diff = comm_score_adj - comp_score_adj
+        # if util > 0.4 and is_mem_sig:
+        #     phase = "MEMORY_BOUND"
+        #     confidence = 0.9
 
-        if util > 0.4 and is_mem_sig:
+        # elif phase_diff > 2.0:
+        #     phase = "COMMUNICATION"
+        #     confidence = min(0.3 + phase_diff / 10.0, 1.0)
+        # elif phase_diff < -2.0:
+        #     if util > 1.1 or apps > 1:
+        #         phase = "PARALLEL_COMPUTE"
+        #     else:
+        #         phase = "SERIAL_COMPUTE"
+        #     confidence = min(0.3 + abs(phase_diff) / 10.0, 1.0)
+
+        # elif idle_pct > 95 or util < 0.1:
+        #     phase = "IDLE"
+        #     confidence = 0.8
+        #     reasons.append(f"very_idle={idle_pct:.0f}%")
+
+        # elif iowait_pct > 15:
+        #     phase = "IO_WAIT"
+        #     confidence = 0.7
+        #     reasons.append(f"iowait={iowait_pct:.1f}%")
+
+        # elif total_net_bw > 20:
+        #     phase = "NETWORK_COMM"
+        #     confidence = 0.6
+        #     reasons.append(f"high_net={total_net_bw:.1f}MB/s")
+        
+        phase_diff = comm_score_adj - comp_score_adj
+        # Calculate base confidence
+        confidence = min(abs(phase_diff) / 5.0, 1.0)
+
+        # 6. Final Decision Tree
+        if util < 0.15 or idle_pct > 95: 
+            phase = "IDLE"
+            confidence = 0.95
+        elif util > 0.4 and is_mem_sig:
             phase = "MEMORY_BOUND"
             confidence = 0.9
-
-        elif phase_diff > 2.0:
+            reasons.append(f"mem_bound(miss={miss_rate:.2f})")
+        elif phase_diff > 1.0: 
             phase = "COMMUNICATION"
-            confidence = min(0.3 + phase_diff / 10.0, 1.0)
-        elif phase_diff < -2.0:
-            if util > 1.1 or apps > 1:
-                phase = "PARALLEL_COMPUTE"
-            else:
-                phase = "SERIAL_COMPUTE"
-            confidence = min(0.3 + abs(phase_diff) / 10.0, 1.0)
-
-        elif idle_pct > 95 or util < 0.1:
-            phase = "IDLE"
-            confidence = 0.8
-            reasons.append(f"very_idle={idle_pct:.0f}%")
-
+        elif phase_diff < -1.0:
+            phase = "PARALLEL_COMPUTE" if util > 1.1 or apps > 1 else "SERIAL_COMPUTE"
         elif iowait_pct > 15:
             phase = "IO_WAIT"
-            confidence = 0.7
-            reasons.append(f"iowait={iowait_pct:.1f}%")
+        else:
+            phase = "MIXED"
 
-        elif total_net_bw > 20:
-            phase = "NETWORK_COMM"
-            confidence = 0.6
-            reasons.append(f"high_net={total_net_bw:.1f}MB/s")
-        
-        # Apply phase stabilization based on history
+        # 7. Apply phase stablization
         phase = self.stabilize_phase(phase, timestamp)
         
         details = {
@@ -1332,17 +1347,12 @@ class IntelligentCommPhaseMonitor:
             handle.close()
         self.context_handles.clear()
 
+        # Zaner
         # Put the node back into performance
-        for g in self.governor_handles:
+        for g in self.governor_paths:
             try:
-                g.write("performance")
-                g.flush()
-                g.close()
+                with open(g, "w") as f: f.write("performance")
             except: pass
-        
-        for s in self.setspeed_handles:
-            s.close()
-
         self.generate_comprehensive_report(total_time, miniMD_timings)
         
         print(f"\n[INFO] Monitoring complete. Data saved to {LOG_FILE}")

@@ -193,7 +193,10 @@ try:
             current_phase = "STALLED/WAIT"
 
         phase_stats[current_phase] += INTERVAL
+
         
+        
+        print(f"{ipc:.2f}")        
         #------------------- PHASE CONTROL ------------------- #
         if current_phase != last_phase:
             streak_counter += 1
