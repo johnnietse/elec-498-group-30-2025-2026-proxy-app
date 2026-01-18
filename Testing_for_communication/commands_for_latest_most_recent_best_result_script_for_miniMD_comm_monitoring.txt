@@ -1,0 +1,11 @@
+# basic usage
+python3 latest_most_recent_best_result_script_for_miniMD_comm_monitoring.py
+
+# specify rank count
+python3 latest_most_recent_best_result_script_for_miniMD_comm_monitoring.py -n 4
+
+# custom command
+python3 latest_most_recent_best_result_script_for_miniMD_comm_monitoring.py -c "mpirun -np 8 ./miniMD_openmpi -i in.lj.miniMD"
+
+# monitor existing process
+python3 latest_most_recent_best_result_script_for_miniMD_comm_monitoring.py --no-run
