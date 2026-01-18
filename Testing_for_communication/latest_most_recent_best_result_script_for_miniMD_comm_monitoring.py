@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-INTELLIGENT Communication Phase Monitor for miniMD - Version 11.0
+INTELLIGENT Communication Phase Monitor for miniMD - Version 14.0
 Enhanced with rank-aware normalization and pattern-based classification
 Key improvements:
 1. Rank-aware CPU normalization (accounts for idle cores at low rank counts)
@@ -9,6 +9,8 @@ Key improvements:
 4. Dynamic rank detection and threshold adjustment
 5. Removed misleading metrics for low-rank runs
 """
+
+#only thing that is concerning is the summary report it defaults the expected values to mpi rank of 32, which doesn't affect any other features but simply is just a display. Despite the mpi rank of 32 display doesn't change even when mpi rank changes to other numbers, it is purely for display. The script still detects the actual detected communication percentage truthfully.  
 
 import subprocess
 import time
