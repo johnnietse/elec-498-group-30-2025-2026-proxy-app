@@ -141,7 +141,10 @@ class MetricsCollector:
         
         try:
             self.perf_process = subprocess.Popen(cmd, stderr=subprocess.PIPE, text=True, bufsize=1)
-            file_descriptor = self.perf_process.fileno()
+            
+            # FIX: Access .stderr before .fileno()
+            file_descriptor = self.perf_process.stderr.fileno() 
+            
             fl = fcntl.fcntl(file_descriptor, fcntl.F_GETFL)
             fcntl.fcntl(file_descriptor, fcntl.F_SETFL, fl | os.O_NONBLOCK) # Non-blocking read
         except Exception as e:
@@ -413,5 +416,376 @@ class MetricsCollector:
    # ---------------------- Helper Functions END----------------------
 
 class PhaseAnalyzer:
+    def __init__(self, expected_ranks):
+        self.expected_ranks = expected_ranks
+
+        # adaptive history
+        self.history = {
+            'power': deque(maxlen=100),
+            'ipc': deque(maxlen=100),
+            'idle': deque(maxlen=100),
+            'ctx': deque(maxlen=100),
+            'sync': deque(maxlen=100),
+            'miss': deque(maxlen=100),
+            'phase_seq': deque(maxlen=10)
+        }
+
+        # intilizae dynamic thresholds
+        self.dynamic_thresholds = {
+            'power_compute_threshold': 180.0,
+            'power_comm_threshold': 140.0,
+            'ipc_compute_target': 1.6,
+            'miss_rate_high_target': 0.30,
+            'idle_comm_threshold': 80.0,
+            'ctx_comm_threshold': 1000,
+            'sync_variance_threshold': 10.0,
+            'power_per_rank': 15.0 # Fallback/Static
+        }
+
+        # scaling expectations
+        self.expected_comm_pct = 50.0
+        if expected_ranks in EMPIRICAL_SCALING_DATA:
+            self.expected_comm_pct = EMPIRICAL_SCALING_DATA[expected_ranks]["comm_pct"]
+            
+
+    def _normalize_metrics(self, m:SystemMetrics):
+        """Perform rank aware normalization"""
+        ranks = m.active_ranks if m.active_ranks > 0 else None
+        if not ranks:
+            return
+        
+        total_cpu_cores = 32
+        
+        # Normalize the power
+        m.power_per_rank = m.pkg_power / ranks
+
+        # NOrmalize CPU
+        max_possible_util = (ranks / total_cpu_cores) * 100
+        m.effective_cpu_util = (m.cpu_total_util / max_possible_util * 100) if max_possible_util > 0 else 0
+
+    def _update_adaptive_thresholds(self, m: SystemMetrics):
+        # Append latest metrics
+        self.history['power'].append(m.pkg_power)
+        self.history['ipc'].append(m.ipc)
+        self.history['idle'].append(m.cpu_util_all[3] if len(m.cpu_util_all) > 3 else 0)
+        self.history['ctx'].append(m.ctx_switches)
+        self.history['sync'].append(m.sync_variance)
+        self.history['miss'].append(m.miss_rate)
+
+        
+        if len(self.history['power']) >= 20 and len(self.history['power']) % 20 == 0:
+            try:
+                # Power Thresholds
+                p25_pwr = np.percentile(self.history['power'], 25)
+                p75_pwr = np.percentile(self.history['power'], 75)
+                self.dynamic_thresholds['power_compute_threshold'] = p75_pwr * 0.90
+                self.dynamic_thresholds['power_comm_threshold'] = p25_pwr * 1.10
+
+                # Performance Thresholds
+                self.dynamic_thresholds['ipc_compute_target'] = np.percentile(self.history['ipc'], 75)
+                self.dynamic_thresholds['miss_rate_high_target'] = np.percentile(self.history['miss'], 75)
+                
+                # Communication Indicators
+                self.dynamic_thresholds['idle_comm_threshold'] = np.percentile(self.history['idle'], 75)
+                self.dynamic_thresholds['ctx_comm_threshold'] = np.percentile(self.history['ctx'], 75) * 0.8
+            except: pass
+
+    def detect_statistical_outliers(self, m: SystemMetrics):
+        if len(self.history['power']) < 10: return 0.0
+        try:
+            p_mean = np.mean(self.history['power'])
+            p_std = np.std(self.history['power'])
+            i_mean = np.mean(self.history['idle'])
+            i_std = np.std(self.history['idle'])
+            
+            p_z = (m.pkg_power - p_mean) / p_std if p_std > 0 else 0
+            i_z = (m.cpu_util_all[3] - i_mean) / i_std if i_std > 0 else 0
+            
+            # High Power + Low Idle (Compute Outlier)
+            if p_z > 1.5 and i_z < -1.0: return 1.0
+            # Low Power + High Idle (Comm Outlier)
+            if p_z < -1.5 and i_z > 1.0: return -1.0
+            return 0.0
+        except: return 0.0
+
+    def _stabilize_phase(self, phase):
+        self.history['phase_seq'].append(phase)
+        if len(self.history['phase_seq']) >= 3:
+            counts = Counter(list(self.history['phase_seq'])[-3:])
+            most_common = counts.most_common(1)[0]
+            if most_common[1] >= 2 and most_common[0] != phase:
+                return most_common[0]
+        return phase
+
+    # Real classification logic here
+    def detect_phase(self, m: SystemMetrics) -> tuple[str, dict]:
+        self._normalize_metrics(m)
+        self._update_adaptive_thresholds(m)
+
+        comp_score = 0.0
+        comm_score = 0.0
+        mem_score = 0.0
+        reasons = []
+        
+        idle_pct = m.cpu_util_all[3] if len(m.cpu_util_all) > 3 else 0
+        total_net = m.net_rx_mbps + m.net_tx_mbps
+
+        # --- A. COMPUTE INDICATORS ---
+        if m.pkg_power > self.dynamic_thresholds['power_compute_threshold']:
+            comp_score += 2.0
+            reasons.append(f"high power ({m.pkg_power:.0f}W)")
+        
+        if m.ipc > self.dynamic_thresholds['ipc_compute_target']:
+            comp_score += 2.0
+            reasons.append(f"high ipc ({m.ipc:.2f})")
+            
+        if m.effective_cpu_util > 75.0:
+            comp_score += 1.5
+            reasons.append(f"high eff_util ({m.effective_cpu_util:.0f}%)")
+
+        # --- B. NETWORK / COMM INDICATORS ---
+        if total_net > 20.0:
+            comm_score += 1.5
+            reasons.append(f"high net ({total_net:.0f}MB/s)")
+
+        if m.effective_cpu_util < 40.0 and m.pkg_power > 50:
+            comm_score += 1.0
+
+        if m.sync_variance > 10.0:
+            comm_score += 1.0
+            reasons.append(f"high variance ({m.sync_variance:.1f}%)")
+
+        # --- C. OUTLIER ANALYSIS (Code 2 Feature) ---
+        outlier = self.detect_statistical_outliers(m)
+        if outlier > 0.7: 
+            comp_score += 2.0
+            reasons.append("comp_outlier")
+        elif outlier < -0.7: 
+            comm_score += 2.0
+            reasons.append("comm_outlier")
+
+        # --- D. MEMORY INDICATORS ---
+        miss_target = self.dynamic_thresholds['miss_rate_high_target']
+        if m.ipc < 1.0 and m.miss_rate > miss_target:
+            mem_score += 3.0
+            reasons.append(f"mem_bound(miss={m.miss_rate:.2f})")
+        
+        if m.dram_power > 10.0:
+            mem_score += 1.0
+
+        # --- E. DECISION ---
+        if m.pkg_power < 50.0 and m.effective_cpu_util < 10:
+            phase = "IDLE"
+        elif mem_score > 2.0:
+            phase = "MEMORY_BOUND"
+        elif comm_score > comp_score:
+            phase = "COMMUNICATION"
+        else:
+            phase = "COMPUTE"
+
+        final_phase = self._stabilize_phase(phase)
+
+        details = {
+            'phase': final_phase,
+            'scores': f"Comp:{comp_score:.1f} Comm:{comm_score:.1f} Mem:{mem_score:.1f}",
+            'reasons': ', '.join(reasons)
+        }
+        return final_phase, details
+        
+
+class FrequencyController:
     def __init__(self):
-        pass
+        self.handles = []
+        
+        # Find all CPU governor files
+        gov_files = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor")
+        
+        if not gov_files:
+            print("[WARN] No CPU frequency scaling paths found.")
+            return
+
+        success_count = 0
+        for gov in gov_files:
+            try:
+                # Open in text mode (default buffering)
+                f = open(gov, 'w')
+                self.handles.append(f)
+                success_count += 1
+            except PermissionError:
+                # Mimic V16 behavior: Ignore errors if we aren't root
+                pass
+            except OSError:
+                pass
+        
+        # If we couldn't open any files, warn the user but DON'T CRASH
+        if success_count == 0:
+            print("[WARN] No root access for DVFS. Running in MONITOR-ONLY mode.")
+        else:
+            print(f"[INFO] Frequency control enabled on {success_count} cores.")
+
+    def set_mode(self, mode: str):
+        # If no handles (because no sudo), this function does nothing safely
+        if not self.handles: 
+            return
+        
+        target = "performance" if mode == "COMPUTE" else "powersave"
+        for h in self.handles:
+            try:
+                h.seek(0)
+                h.write(target)
+                h.flush() # Force write to apply setting immediately
+            except OSError:
+                pass
+
+class IntelligentMonitorv17:
+    def __init__(self, args):
+        self.config = {
+            'rapl_path': "/sys/class/powercap/intel-rapl:0/energy_uj",
+            'perf_bin': PERF
+        }
+
+        self.collector = MetricsCollector(self.config)
+        self.analyzer = PhaseAnalyzer(expected_ranks=args.ranks)
+        self.controller = FrequencyController()
+
+
+        # Setup CSV
+        # self.filename = f"monitor_v17_{int(time.time())}.csv"
+        # self.csv_file = open(self.filename, 'w', newline='')
+        # # We need to define headers based on SystemMetrics + Phase Details
+        # fieldnames = [
+        #     'timestamp', 'phase', 'ipc', 'miss_rate', 'pkg_power', 'dram_power',
+        #     'net_rx', 'net_tx', 'cpu_util_eff', 'ctx_switches', 'sync_var',
+        #     'scores', 'reasons'
+        # ]
+        # self.writer = csv.DictWriter(self.csv_file, fieldnames=fieldnames)
+        # self.writer.writeheader()
+
+    
+    def get_miniMD_pids(self, existing_pids=None):
+        if existing_pids and len(existing_pids) > 0:
+            try:
+                os.kill(existing_pids[0], 0)
+                return existing_pids 
+            except OSError: pass 
+
+        try:
+            # Look specifically for the binary name
+            result = subprocess.run(["pgrep", "miniMD_openmpi"], capture_output=True, text=True, timeout=2)
+            if result.returncode == 0 and result.stdout.strip():
+                pids = [int(pid) for pid in result.stdout.strip().split()]
+                # filter out our own script just in case
+                my_pid = os.getpid()
+                return [p for p in pids if p != my_pid]
+        except: pass
+        return []
+    
+    # MAIN RUNING LOGIC
+    def run(self):
+        print(f"[INFO] V17 Monitoring started. Logging to {self.filename}")
+        print("[INFO] Waiting for miniMD to run...")
+        
+        pids = []
+        while not pids:
+            pids = self.get_miniMD_pids()
+            time.sleep(0.5)
+        
+        print(f"[INFO] Attached to {len(pids)} ranks.")
+        
+        last_heartbeat_time = 0
+        
+        try:
+            while True:
+                # --- START INTERVAL TIMER ---
+                loop_start = time.time()
+                
+                # 1. Check process health
+                pids = self.get_miniMD_pids(pids)
+                if not pids:
+                    print("[INFO] miniMD finished. Exiting.")
+                    break
+
+                # 2. Collect
+                metrics = self.collector.sample(pids)
+
+                # 3. Classify
+                phase, details = self.analyzer.detect_phase(metrics)
+
+                # 4. Act
+                # self.controller.set_mode(phase)
+
+                # 5. Log
+                # row = {
+                #     'timestamp': f"{metrics.timestamp:.4f}",
+                #     'phase': phase,
+                #     'ipc': f"{metrics.ipc:.2f}",
+                #     'miss_rate': f"{metrics.miss_rate:.2f}",
+                #     'pkg_power': f"{metrics.pkg_power:.1f}",
+                #     'dram_power': f"{metrics.dram_power:.1f}",
+                #     'net_rx': f"{metrics.net_rx_mbps:.1f}",
+                #     'net_tx': f"{metrics.net_tx_mbps:.1f}",
+                #     'cpu_util_eff': f"{metrics.effective_cpu_util:.1f}",
+                #     'ctx_switches': f"{metrics.ctx_switches:.0f}",
+                #     'sync_var': f"{metrics.sync_variance:.1f}",
+                #     'scores': details.get('scores', ''),
+                #     'reasons': details.get('reasons', '')
+                # }
+                # self.writer.writerow(row)
+                # self.csv_file.flush()
+
+                # --- 5-SECOND HEARTBEAT ---
+                if loop_start - last_heartbeat_time >= 5.0:
+                    print(f"[{datetime.now().strftime('%H:%M:%S')}] "
+                          f"Phase: {phase:12s} | "
+                          f"IPC: {metrics.ipc:.2f} | "
+                          f"Pwr: {metrics.pkg_power:.0f}W | "
+                          f"Eff-Util: {metrics.effective_cpu_util:.0f}%")
+                    last_heartbeat_time = loop_start
+
+                # --- DYNAMIC SLEEP ---
+                # Sleep only the remainder of the interval
+                elapsed = time.time() - loop_start
+                sleep_time = max(0, SAMPLE_INTERVAL - elapsed)
+                time.sleep(sleep_time)
+
+        except KeyboardInterrupt:
+            print("\n[STOP] Monitoring stopped by user.")
+        finally:
+            self.csv_file.close()
+
+def main():
+    import argparse
+    
+    # 1. Setup Argument Parser
+    parser = argparse.ArgumentParser(description='INTELLIGENT MiniMD Monitor v17')
+    parser.add_argument('-n', '--ranks', type=int, default=30, 
+                        help='Number of MPI ranks (default: 30)')
+    parser.add_argument('-c', '--command', type=str, 
+                        help='Command to launch miniMD (optional override)')
+    
+    args = parser.parse_args()
+
+    # 2. Handle Command Override (Global CMD variable)
+    # If the user provides a specific command string, we split it for subprocess
+    if args.command:
+        import shlex
+        global CMD
+        CMD = shlex.split(args.command)
+        print(f"[CONFIG] Overriding command: {CMD}")
+
+    # 3. Instantiate the Monitor
+    # We pass 'args' because IntelligentMonitorv17 expects it in __init__
+    monitor = IntelligentMonitorv17(args)
+    
+    # 4. Run the Main Loop
+    try:
+        monitor.run()
+    except KeyboardInterrupt:
+        print("\n[STOP] Monitoring interrupted.")
+    except Exception as e:
+        print(f"[FATAL] Monitor crashed: {e}")
+        import traceback
+        traceback.print_exc()
+
+if __name__ == "__main__":
+    main()

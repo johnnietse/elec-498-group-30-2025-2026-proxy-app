@@ -102,7 +102,7 @@ time_mon=$(echo "$end_t - $start_t" | bc -l)
 energy_mon=$(cat energy_mon.txt)
 
 # Find the latest CSV
-LATEST_CSV=$(ls -t comm_phase_monitoring_*.csv | head -n 1)
+LATEST_CSV=$(ls -t monitor_v17_*.csv | head -n 1)
 
 # Check for classification in the 'phase' column (Column 2)
 echo "Phase summary for $LATEST_CSV:"
