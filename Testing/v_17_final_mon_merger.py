@@ -113,12 +113,16 @@ class MetricsCollector:
             self.files['dram'] = open(config['dram_path'], 'r')
 
         self.proc_handles = {}
+
+        # Take an initial reading so the first sample isn't a massive spike
+        init_pkg = self._read_rapl(self.files['rapl']) if self.files['rapl'] else 0
+        init_dram = self._read_rapl(self.files['dram']) if 'dram' in self.files else 0
         
         # state tracking for deltas in calculations
         self.prev = {
             'time': time.time(),
-            'pkg_e': 0,
-            'dram_e': 0,
+            'pkg_e': init_pkg,
+            'dram_e': init_dram,
             'net_r': 0,  
             'net_s': 0, 
             'ctx': 0, 
@@ -289,11 +293,28 @@ class MetricsCollector:
 
 
     # ---------------------- Helper Functions Begin----------------------
+    # def _safe_delta(self, current, previous, counter_name=""):
+    #     if current >= previous: return current - previous
+    #     max_value = 2**32 if "energy" in counter_name or "rapl" in counter_name.lower() else 2**64
+    #     return (max_value - previous) + current
     def _safe_delta(self, current, previous, counter_name=""):
-        if current >= previous: return current - previous
-        max_value = 2**32 if "energy" in counter_name or "rapl" in counter_name.lower() else 2**64
-        return (max_value - previous) + current
-
+        if current >= previous:
+            return current - previous
+        
+        # RAPL counters (energy_uj) are usually 32-bit unsigned
+        # standard counters (like /proc/net/dev) are usually 64-bit
+        is_rapl = "energy" in counter_name or "rapl" in counter_name.lower()
+        max_val = 2**32 if is_rapl else 2**64
+        
+        diff = (max_val - previous) + current
+        
+        # Sanity check: If the jump is impossibly large (e.g. > 10000 Watts equivalent),
+        # it might be a driver reset, not a wrap-around. Ignore this sample.
+        # 10000 Joules in 0.2s = 50,000 Watts.
+        if is_rapl and diff > 10000000000: 
+            return 0 
+            
+        return diff
     def _read_rapl(self, handle):
         """Read rapl without reopeing the file"""
         if not handle: 
@@ -650,16 +671,16 @@ class IntelligentMonitorv17:
 
 
         # Setup CSV
-        # self.filename = f"monitor_v17_{int(time.time())}.csv"
-        # self.csv_file = open(self.filename, 'w', newline='')
+        self.filename = f"monitor_new.csv"
+        self.csv_file = open(self.filename, 'w', newline='')
         # # We need to define headers based on SystemMetrics + Phase Details
-        # fieldnames = [
-        #     'timestamp', 'phase', 'ipc', 'miss_rate', 'pkg_power', 'dram_power',
-        #     'net_rx', 'net_tx', 'cpu_util_eff', 'ctx_switches', 'sync_var',
-        #     'scores', 'reasons'
-        # ]
-        # self.writer = csv.DictWriter(self.csv_file, fieldnames=fieldnames)
-        # self.writer.writeheader()
+        fieldnames = [
+            'timestamp', 'phase', 'ipc', 'miss_rate', 'pkg_power', 'dram_power',
+            'net_rx', 'net_tx', 'cpu_util_eff', 'ctx_switches', 'sync_var',
+            'scores', 'reasons'
+        ]
+        self.writer = csv.DictWriter(self.csv_file, fieldnames=fieldnames)
+        self.writer.writeheader()
 
     
     def get_miniMD_pids(self, existing_pids=None):
@@ -682,7 +703,7 @@ class IntelligentMonitorv17:
     
     # MAIN RUNING LOGIC
     def run(self):
-        print(f"[INFO] V17 Monitoring started. Logging to {self.filename}")
+        print(f"[INFO] V17 Monitoring started.")
         print("[INFO] Waiting for miniMD to run...")
         
         pids = []
@@ -715,26 +736,26 @@ class IntelligentMonitorv17:
                 # self.controller.set_mode(phase)
 
                 # 5. Log
-                # row = {
-                #     'timestamp': f"{metrics.timestamp:.4f}",
-                #     'phase': phase,
-                #     'ipc': f"{metrics.ipc:.2f}",
-                #     'miss_rate': f"{metrics.miss_rate:.2f}",
-                #     'pkg_power': f"{metrics.pkg_power:.1f}",
-                #     'dram_power': f"{metrics.dram_power:.1f}",
-                #     'net_rx': f"{metrics.net_rx_mbps:.1f}",
-                #     'net_tx': f"{metrics.net_tx_mbps:.1f}",
-                #     'cpu_util_eff': f"{metrics.effective_cpu_util:.1f}",
-                #     'ctx_switches': f"{metrics.ctx_switches:.0f}",
-                #     'sync_var': f"{metrics.sync_variance:.1f}",
-                #     'scores': details.get('scores', ''),
-                #     'reasons': details.get('reasons', '')
-                # }
-                # self.writer.writerow(row)
-                # self.csv_file.flush()
+                row = {
+                    'timestamp': f"{metrics.timestamp:.4f}",
+                    'phase': phase,
+                    'ipc': f"{metrics.ipc:.2f}",
+                    'miss_rate': f"{metrics.miss_rate:.2f}",
+                    'pkg_power': f"{metrics.pkg_power:.1f}",
+                    'dram_power': f"{metrics.dram_power:.1f}",
+                    'net_rx': f"{metrics.net_rx_mbps:.1f}",
+                    'net_tx': f"{metrics.net_tx_mbps:.1f}",
+                    'cpu_util_eff': f"{metrics.effective_cpu_util:.1f}",
+                    'ctx_switches': f"{metrics.ctx_switches:.0f}",
+                    'sync_var': f"{metrics.sync_variance:.1f}",
+                    'scores': details.get('scores', ''),
+                    'reasons': details.get('reasons', '')
+                }
+                self.writer.writerow(row)
+                
 
                 # --- 5-SECOND HEARTBEAT ---
-                if loop_start - last_heartbeat_time >= 5.0:
+                if loop_start - last_heartbeat_time >= 1.0:
                     print(f"[{datetime.now().strftime('%H:%M:%S')}] "
                           f"Phase: {phase:12s} | "
                           f"IPC: {metrics.ipc:.2f} | "
@@ -751,8 +772,10 @@ class IntelligentMonitorv17:
         except KeyboardInterrupt:
             print("\n[STOP] Monitoring stopped by user.")
         finally:
-            self.csv_file.close()
-
+            if self.csv_file:     
+                self.csv_file.flush()           
+                self.csv_file.close()
+            
 def main():
     import argparse
     
@@ -767,11 +790,11 @@ def main():
 
     # 2. Handle Command Override (Global CMD variable)
     # If the user provides a specific command string, we split it for subprocess
-    if args.command:
-        import shlex
-        global CMD
-        CMD = shlex.split(args.command)
-        print(f"[CONFIG] Overriding command: {CMD}")
+    # if args.command:
+    #     import shlex
+    #     global CMD
+    #     CMD = shlex.split(args.command)
+    #     print(f"[CONFIG] Overriding command: {CMD}")
 
     # 3. Instantiate the Monitor
     # We pass 'args' because IntelligentMonitorv17 expects it in __init__

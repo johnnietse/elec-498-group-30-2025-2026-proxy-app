@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # ================= CONFIGURATION =================
-MPI_RANKS=30
+MPI_RANKS=24
 PYTHON_SCRIPT="test.py"
 RAPL_PATH="/sys/class/powercap/intel-rapl:0/energy_uj"
 MAX_PATH="/sys/class/powercap/intel-rapl:0/max_energy_range_uj"
@@ -10,7 +10,7 @@ MAX_PATH="/sys/class/powercap/intel-rapl:0/max_energy_range_uj"
 # We take the original working file and force the size/steps change using wildcards (.*)
 # This handles tabs, multiple spaces, or comments that might exist between numbers.
 cp in.lj.miniMD in.fast
-sed -i 's/128.*128.*128/64 64 64/' in.fast  # Replace size with 40 40 40
+sed -i 's/128.*128.*128/128 128 128' in.fast  # Replace size with 40 40 40
 sed -i 's/2000/2000/' in.fast               # Replace steps with 1000
 
 # Use the new file
@@ -54,8 +54,10 @@ echo ""
 echo "[1/2] Starting BASELINE run..."
 start_t=$(date +%s.%N)
 
+
 # Using 'grep' to filter output so you only see the important steps
-mpirun --oversubscribe -np $MPI_RANKS ./miniMD_openmpi $MINIMD_ARGS | grep --line-buffered "Step" &
+mpirun -np $MPI_RANKS --map-by core --bind-to core --report-bindings ./miniMD_openmpi $MINIMD_ARGS \
+    | tee baseline.log &
 APP_PID=$!
 
 monitor_energy "energy_base.txt" $APP_PID &
@@ -80,7 +82,8 @@ echo ""
 echo "[2/2] Starting MONITORED run..."
 start_t=$(date +%s.%N)
 
-mpirun --oversubscribe -np $MPI_RANKS ./miniMD_openmpi $MINIMD_ARGS | grep --line-buffered "Step" &
+mpirun -np $MPI_RANKS --map-by core --bind-to core --report-bindings ./miniMD_openmpi $MINIMD_ARGS \
+    | tee baseline.log &
 APP_PID=$!
 
 FULL_CMD="mpirun -np $MPI_RANKS ./miniMD_openmpi"
@@ -102,7 +105,7 @@ time_mon=$(echo "$end_t - $start_t" | bc -l)
 energy_mon=$(cat energy_mon.txt)
 
 # Find the latest CSV
-LATEST_CSV=$(ls -t monitor_v17_*.csv | head -n 1)
+LATEST_CSV="monitor_new.csv"
 
 # Check for classification in the 'phase' column (Column 2)
 echo "Phase summary for $LATEST_CSV:"
