@@ -47,7 +47,7 @@ do
     
     # Run the simulation: capture miniMD physics output to the log file
     echo "--- miniMD Physics Output ---" >> $LOG_FILE
-    mpirun --oversubscribe -np 8 ./miniMD_openmpi -i in.lj.miniMD >> $LOG_FILE 2>&1
+    mpirun -np 8 --report-bindings ./miniMD_openmpi -i in.lj.miniMD --ckpt 200 >> $LOG_FILE 2>&1
     
     END_TIME=$(date +%s%N)
     
