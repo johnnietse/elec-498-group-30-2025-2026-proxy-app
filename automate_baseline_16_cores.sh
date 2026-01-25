@@ -22,7 +22,10 @@ sample_energy() {
     while [ -f .running_$RUN_ID ]; do
         CURRENT=$(cat $ENERGY_FILE)
         DIFF=$((CURRENT - PREV))
-        if [ $DIFF -lt 0 ]; then DIFF=$((DIFF + MAX_RANGE)); fi
+        # Handle wrap-around
+        if [ "$(echo "$DIFF < 0" | bc)" -eq 1 ]; then
+            DIFF=$(echo "$DIFF + $MAX_RANGE" | bc)
+        fi
         ACCUMULATED_UJ=$((ACCUMULATED_UJ + DIFF))
         PREV=$CURRENT
         echo $ACCUMULATED_UJ > .energy_tmp_$RUN_ID
@@ -34,27 +37,33 @@ for ((i=1; i<=NUM_RUNS; i++))
 do
     echo "---------------------------------------" >> $LOG_FILE
     echo "Starting Run $i of $NUM_RUNS..." | tee -a $LOG_FILE
-    
+
+    # CLEANUP: Ensure no leftover status files from previous failed iterations
+    rm -f ".running_$i" ".energy_tmp_$i"
+
     # Setup background monitoring
     touch .running_$i
     sample_energy $i &
     MONITOR_PID=$!
     
-    # Initialization buffer: prevents "file not found" errors
+    # HEALTH CHECK: Wait and verify the monitor is actually alive
     sleep 2
+    if ! kill -0 $MONITOR_PID 2>/dev/null; then
+        echo "ERROR: Energy monitor (PID $MONITOR_PID) failed to start for Run $i" | tee -a "$LOG_FILE"
+    fi
     
     START_TIME=$(date +%s%N)
     
     # Run the simulation: capture miniMD physics output to the log file
     echo "--- miniMD Physics Output ---" >> $LOG_FILE
-    mpirun -np 16 --report-bindings ./miniMD_openmpi -i in.lj.miniMD --ckpt 200 >> $LOG_FILE 2>&1
+    mpirun -np 1 --report-bindings ./miniMD_openmpi -i in.lj.miniMD --ckpt 200 >> $LOG_FILE 2>&1
     
     END_TIME=$(date +%s%N)
     
     # Cleanup monitoring with a small buffer to ensure the last energy write finishes
     sleep 1
     rm .running_$i
-    wait $MONITOR_PID
+    wait $MONITOR_PID 2>/dev/null
     
     # 2. POLLING LOOP: Wait up to 30 seconds for the energy file to appear
     # This happens AFTER END_TIME, so Execution_Time_Sec remains accurate.
