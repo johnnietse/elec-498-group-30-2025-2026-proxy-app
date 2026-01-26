@@ -35,66 +35,32 @@ sample_energy() {
 
 for ((i=1; i<=NUM_RUNS; i++))
 do
-    echo "---------------------------------------" >> $LOG_FILE
-    echo "Starting Run $i of $NUM_RUNS..." | tee -a $LOG_FILE
-
-    # CLEANUP: Ensure no leftover status files from previous failed iterations
-    rm -f ".running_$i" ".energy_tmp_$i"
-
-    # Setup background monitoring
-    touch .running_$i
-    sample_energy $i &
-    MONITOR_PID=$!
+    echo "Starting Run $i of $NUM_RUNS..." | tee -a "$LOG_FILE"
     
-    # HEALTH CHECK: Wait and verify the monitor is actually alive
-    sleep 2
-    if ! kill -0 $MONITOR_PID 2>/dev/null; then
-        echo "ERROR: Energy monitor (PID $MONITOR_PID) failed to start for Run $i" | tee -a "$LOG_FILE"
-    fi
-    
+    # Capture energy BEFORE
+    BEFORE_UJ=$(cat "$ENERGY_FILE")
     START_TIME=$(date +%s%N)
     
-    # Run the simulation: capture miniMD physics output to the log file
-    echo "--- miniMD Physics Output ---" >> $LOG_FILE
+    # Run simulation
     mpirun -np 1 --report-bindings ./miniMD_openmpi -i in.lj.miniMD --ckpt 200 >> $LOG_FILE 2>&1
     
+    # Capture energy AFTER
     END_TIME=$(date +%s%N)
+    AFTER_UJ=$(cat "$ENERGY_FILE")
     
-    # Cleanup monitoring with a small buffer to ensure the last energy write finishes
-    sleep 1
-    rm .running_$i
-    wait $MONITOR_PID 2>/dev/null
-    
-    # 2. POLLING LOOP: Wait up to 30 seconds for the energy file to appear
-    # This happens AFTER END_TIME, so Execution_Time_Sec remains accurate.
-    RETRIES=0
-    while [ ! -s ".energy_tmp_$i" ] && [ $RETRIES -lt 30 ]; do
-        sleep 1
-        ((RETRIES++))
-    done
-    
-    # Calculations with error checking
-    if [ -s .energy_tmp_$i ]; then
-        TOTAL_UJ=$(cat .energy_tmp_$i)
-        ELAPSED_NS=$((END_TIME - START_TIME))
-        
-        # Formatting with bc
-        TIME_SEC=$(echo "scale=3; $ELAPSED_NS / 1000000000" | bc)
-        ENERGY_J=$(echo "scale=3; $TOTAL_UJ / 1000000" | bc)
-        POWER_W=$(echo "scale=2; $ENERGY_J / $TIME_SEC" | bc)
-        
-        # Save to CSV
-        echo "$i,$TIME_SEC,$ENERGY_J,$POWER_W" >> $CSV_FILE
-        
-        # Append summary to log file
-        echo "Run $i Stats: ${TIME_SEC}s, ${ENERGY_J}J, ${POWER_W}W" >> $LOG_FILE
-        echo "Run $i finished: ${TIME_SEC}s, ${ENERGY_J}J"
-    else
-        echo "ERROR: Energy data missing for Run $i" | tee -a $LOG_FILE
+    # Calculate difference (Handle wrap-around)
+    DIFF_UJ=$(echo "$AFTER_UJ - $BEFORE_UJ" | bc)
+    if [ "$(echo "$DIFF_UJ < 0" | bc)" -eq 1 ]; then
+        DIFF_UJ=$(echo "$DIFF_UJ + $MAX_RANGE" | bc)
     fi
     
-    # Cleanup temp files
-    rm -f .energy_tmp_$i
+    # Calculations
+    ELAPSED_NS=$(echo "$END_TIME - $START_TIME" | bc)
+    TIME_SEC=$(echo "scale=3; $ELAPSED_NS / 1000000000" | bc)
+    ENERGY_J=$(echo "scale=3; $DIFF_UJ / 1000000" | bc)
+    POWER_W=$(echo "scale=2; $ENERGY_J / $TIME_SEC" | bc)
+    
+    # Save results
+    echo "$i,$TIME_SEC,$ENERGY_J,$POWER_W" >> "$CSV_FILE"
+    echo "Run $i finished: ${TIME_SEC}s, ${ENERGY_J}J" | tee -a "$LOG_FILE"
 done
-
-echo "All $NUM_RUNS runs completed. Data saved to $CSV_FILE." | tee -a $LOG_FILE
