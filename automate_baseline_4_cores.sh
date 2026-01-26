@@ -10,7 +10,7 @@ LOG_FILE="batch_result_${SLURM_JOB_ID:-manual}.out"
 
 # Initialize CSV header if it doesn't exist
 if [ ! -f $CSV_FILE ]; then
-    echo "Run_Number,Execution_Time_Sec,Total_Energy_J,Avg_Power_W" > $CSV_FILE
+    echo "Run_Number,Execution_Time_Sec_Sec_4_Cores,Total_Energy_J_Sec_4_Cores,Avg_Power_W_Sec_4_Cores" > $CSV_FILE
 fi
 
 # Function to sample energy in background (handles multi-wrap)
