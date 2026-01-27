@@ -30,7 +30,7 @@ LOG_FILE = f"comm_phase_monitor_log.csv"
 SUMMARY_FILE = f"comm_phase_summary_log.txt"
 
 # Sample interval
-SAMPLE_INTERVAL = 0.2
+SAMPLE_INTERVAL = 0.05
 
 PERF = "/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/bin/perf"
 RAPL_PATH = "/sys/class/powercap/intel-rapl:0/energy_uj"
@@ -142,8 +142,8 @@ class MetricsCollector:
 
         pid_str = ",".join(map(str, pids))
         cmd = [self.config['perf_bin'], "stat", "-I", "1000", 
-               "-e", "cycles:u,instructions:u,cache-misses:u,cache-references:u",
-               "-p", pid_str, "-x", ","]
+       "-e", "cycles:u,instructions:u,cache-misses:u,stalled-cycles-backend:u", # Added stalled-cycles
+       "-p", pid_str, "-x", ","]
         
         try:
             self.perf_process = subprocess.Popen(cmd, stderr=subprocess.PIPE, text=True, bufsize=1)
@@ -274,6 +274,8 @@ class MetricsCollector:
         self.prev['ctx'] = curr_ctx
         self.prev['per_proc_cpu'] = curr_proc_times
 
+        iowait = cpu_util_all[4] if len(cpu_util_all) > 4 else 0.0
+
         return SystemMetrics(
             timestamp=now,
             ipc=ipc,
@@ -282,7 +284,7 @@ class MetricsCollector:
             cache_miss=cache_miss,
             cpu_util_all=cpu_util_all,
             cpu_total_util=cpu_total_util,
-            iowait_pct=0.0,
+            iowait_pct=iowait,
             pkg_power=pkg_watts,
             dram_power=dram_watts,
             net_rx_mbps=net_rx_mbps,
@@ -546,84 +548,212 @@ class PhaseAnalyzer:
                 return most_common[0]
         return phase
 
+    # Zaner mine
+
+    # def detect_phase(self, m: SystemMetrics) -> tuple[str, dict]:
+    #     self._normalize_metrics(m)
+    #     self._update_adaptive_thresholds(m)
+
+    #     comp_score = 0.0
+    #     comm_score = 0.0
+    #     mem_score = 0.0
+    #     reasons = []
+        
+    #     total_net = m.net_rx_mbps + m.net_tx_mbps
+
+    #     # --- A. COMPUTE INDICATORS (Optimized Weights) ---
+    #     if m.pkg_power > self.dynamic_thresholds['power_compute_threshold']:
+    #         comp_score += self.weights['W_COMP_PWR'] # 4.61
+    #         reasons.append(f"high power ({m.pkg_power:.0f}W)")
+        
+    #     if m.ipc > self.dynamic_thresholds['ipc_compute_target']:
+    #         comp_score += self.weights['W_COMP_IPC'] # 4.82
+    #         reasons.append(f"high ipc ({m.ipc:.2f})")
+            
+    #     # Tuned Threshold: T_EFF_UTIL (68.28%)
+    #     if m.effective_cpu_util > self.thresholds['T_EFF_UTIL']:
+    #         comp_score += self.weights['W_COMP_UTIL'] # 3.85
+    #         reasons.append(f"high eff_util ({m.effective_cpu_util:.0f}%)")
+
+    #     # --- B. NETWORK / COMM INDICATORS ---
+    #     # Tuned Threshold: T_NET_MBPS (30.5 MB/s)
+    #     if total_net > self.thresholds['T_NET_MBPS']:
+    #         comm_score += self.weights['W_COMM_NET'] # 0.65 (Note: Very Low!)
+    #         reasons.append(f"high net ({total_net:.0f}MB/s)")
+
+    #     # "Phantom Compute"
+    #     if m.effective_cpu_util < 40.0 and m.pkg_power > 50:
+    #         comm_score += self.weights['W_COMM_LOW_U'] # 3.34
+
+    #     # Tuned Threshold: T_SYNC_VAR (33.56%)
+    #     if m.sync_variance > self.thresholds['T_SYNC_VAR']:
+    #         comm_score += self.weights['W_COMM_VAR'] # 1.20
+    #         reasons.append(f"high variance ({m.sync_variance:.1f}%)")
+
+    #     # --- C. OUTLIER ANALYSIS ---
+    #     outlier = self.detect_statistical_outliers(m)
+    #     if outlier > 0.7: 
+    #         comp_score += 2.0
+    #         reasons.append("comp_outlier")
+    #     elif outlier < -0.7: 
+    #         comm_score += 2.0
+    #         reasons.append("comm_outlier")
+
+    #     # --- D. MEMORY INDICATORS ---
+    #     miss_target = self.dynamic_thresholds['miss_rate_high_target']
+    #     if m.ipc < 1.0 and m.miss_rate > miss_target:
+    #         mem_score += self.weights['W_MEM_MISS'] # 2.95
+    #         reasons.append(f"mem_bound(miss={m.miss_rate:.2f})")
+        
+    #     if m.dram_power > 10.0:
+    #         mem_score += self.weights['W_MEM_DRAM'] # 3.86
+
+    #     # --- E. DECISION ---
+    #     if m.pkg_power < 50.0 and m.effective_cpu_util < 10:
+    #         phase = "IDLE"
+    #     elif mem_score > 2.0:
+    #         phase = "MEMORY_BOUND"
+    #     elif comm_score > comp_score:
+    #         phase = "COMMUNICATION"
+    #     else:
+    #         phase = "COMPUTE"
+
+    #     # NOTE: Since we tuned MEMORY and COMPUTE to be the same, 
+    #     # both will trigger High Performance frequency.
+    #     final_phase = self._stabilize_phase(phase)
+
+    #     details = {
+    #         'phase': final_phase,
+    #         'scores': f"Comp:{comp_score:.1f} Comm:{comm_score:.1f} Mem:{mem_score:.1f}",
+    #         'reasons': ', '.join(reasons)
+    #     }
+    #     return final_phase, details  
+    
+    # Zaner gem
+
     def detect_phase(self, m: SystemMetrics) -> tuple[str, dict]:
         self._normalize_metrics(m)
         self._update_adaptive_thresholds(m)
+        reasons = []
 
+        # 1. DETECT STORAGE (I/O) [cite: 276]
+        # Blueprint: CPU util drops below 30% during I/O bound
+        if m.cpu_util_all[4] > 5.0 or (m.cpu_total_util < 30.0 and m.pkg_power < 100):
+            return "STORAGE", {"reasons": f"High Iowait {m.cpu_util_all[4]:.1f}%"}
+
+        # 2. DETECT COMMUNICATION [cite: 343]
+        # High Network OR Low effective utilization with variance
+        if m.net_rx_mbps + m.net_tx_mbps > self.thresholds['T_NET_MBPS']:
+            return "COMMUNICATION", {"reasons": "High Net Traffic"}
+        
+        if m.sync_variance > self.thresholds['T_SYNC_VAR']:
+             return "COMMUNICATION", {"reasons": "High MPI Sync Var"}
+
+        # 3. DIFFERENTIATE COMPUTE vs MEMORY [cite: 361]
+        # Memory bound: High Cache Miss OR High DRAM Power + Lower IPC
+        if m.dram_power > 15.0 or m.miss_rate > 0.40:
+             return "MEMORY_BOUND", {"reasons": f"High DRAM Pwr {m.dram_power:.1f}W"}
+
+        # 4. DEFAULT TO COMPUTE [cite: 299]
+        return "COMPUTE", {"reasons": "High Eff Util & IPC"}
+    
+     # Zaner merged
+    def detect_phase(self, m: SystemMetrics) -> tuple[str, dict]:
+        self._normalize_metrics(m)
+        self._update_adaptive_thresholds(m)
+        
+        reasons = []
         comp_score = 0.0
         comm_score = 0.0
         mem_score = 0.0
-        reasons = []
         
         total_net = m.net_rx_mbps + m.net_tx_mbps
 
-        # --- A. COMPUTE INDICATORS (Optimized Weights) ---
+        # ---------------------------------------------------------
+        # 1. PRIORITY CHECK: STORAGE (I/O)
+        # ---------------------------------------------------------
+        # As per Blueprint: Storage phases are characterized by low CPU utilization (<30%) 
+        # and high I/O wait times. We check this first to "gate" the logic.
+        if m.cpu_util_all[4] > 5.0 or (m.cpu_total_util < 30.0 and m.pkg_power < 100):
+            # Using specific "STORAGE" tag triggers the lowest power state
+            return "STORAGE", {"reasons": f"High Iowait {m.cpu_util_all[4]:.1f}% / Low Util"}
+
+        # ---------------------------------------------------------
+        # 2. SCORING ANALYSIS (Compute vs. Comm vs. Memory)
+        # ---------------------------------------------------------
+        
+        # --- A. COMPUTE INDICATORS ---
         if m.pkg_power > self.dynamic_thresholds['power_compute_threshold']:
-            comp_score += self.weights['W_COMP_PWR'] # 4.61
+            comp_score += self.weights['W_COMP_PWR']
             reasons.append(f"high power ({m.pkg_power:.0f}W)")
         
         if m.ipc > self.dynamic_thresholds['ipc_compute_target']:
-            comp_score += self.weights['W_COMP_IPC'] # 4.82
+            comp_score += self.weights['W_COMP_IPC']
             reasons.append(f"high ipc ({m.ipc:.2f})")
             
-        # Tuned Threshold: T_EFF_UTIL (68.28%)
         if m.effective_cpu_util > self.thresholds['T_EFF_UTIL']:
-            comp_score += self.weights['W_COMP_UTIL'] # 3.85
+            comp_score += self.weights['W_COMP_UTIL']
             reasons.append(f"high eff_util ({m.effective_cpu_util:.0f}%)")
 
         # --- B. NETWORK / COMM INDICATORS ---
-        # Tuned Threshold: T_NET_MBPS (30.5 MB/s)
+        # High Network Traffic [cite: 343]
         if total_net > self.thresholds['T_NET_MBPS']:
-            comm_score += self.weights['W_COMM_NET'] # 0.65 (Note: Very Low!)
+            comm_score += self.weights['W_COMM_NET']
             reasons.append(f"high net ({total_net:.0f}MB/s)")
 
-        # "Phantom Compute"
+        # "Phantom Compute" (High power but doing no real work)
         if m.effective_cpu_util < 40.0 and m.pkg_power > 50:
-            comm_score += self.weights['W_COMM_LOW_U'] # 3.34
+            comm_score += self.weights['W_COMM_LOW_U']
 
-        # Tuned Threshold: T_SYNC_VAR (33.56%)
+        # MPI Synchronization Variance [cite: 343]
         if m.sync_variance > self.thresholds['T_SYNC_VAR']:
-            comm_score += self.weights['W_COMM_VAR'] # 1.20
+            comm_score += self.weights['W_COMM_VAR']
             reasons.append(f"high variance ({m.sync_variance:.1f}%)")
 
-        # --- C. OUTLIER ANALYSIS ---
+        # --- C. MEMORY INDICATORS ---
+        # Memory Bound detection based on Miss Rate [cite: 361]
+        miss_target = self.dynamic_thresholds['miss_rate_high_target']
+        if m.ipc < 1.0 and m.miss_rate > miss_target:
+            mem_score += self.weights['W_MEM_MISS']
+            reasons.append(f"high miss ({m.miss_rate:.2f})")
+        
+        # High DRAM Power usage [cite: 361]
+        if m.dram_power > 15.0: # Updated threshold from 10.0 to 15.0 based on new findings
+            mem_score += self.weights['W_MEM_DRAM']
+            reasons.append(f"high dram pwr ({m.dram_power:.1f}W)")
+
+        # --- D. OUTLIER ANALYSIS ---
         outlier = self.detect_statistical_outliers(m)
         if outlier > 0.7: 
             comp_score += 2.0
-            reasons.append("comp_outlier")
         elif outlier < -0.7: 
             comm_score += 2.0
-            reasons.append("comm_outlier")
 
-        # --- D. MEMORY INDICATORS ---
-        miss_target = self.dynamic_thresholds['miss_rate_high_target']
-        if m.ipc < 1.0 and m.miss_rate > miss_target:
-            mem_score += self.weights['W_MEM_MISS'] # 2.95
-            reasons.append(f"mem_bound(miss={m.miss_rate:.2f})")
+        # ---------------------------------------------------------
+        # 3. FINAL DECISION
+        # ---------------------------------------------------------
+        # We compare scores to find the dominant phase behavior.
         
-        if m.dram_power > 10.0:
-            mem_score += self.weights['W_MEM_DRAM'] # 3.86
-
-        # --- E. DECISION ---
-        if m.pkg_power < 50.0 and m.effective_cpu_util < 10:
-            phase = "IDLE"
-        elif mem_score > 2.0:
+        if mem_score > 2.0:
+            # Memory takes precedence over generic compute if the "penalty" is high enough
             phase = "MEMORY_BOUND"
         elif comm_score > comp_score:
             phase = "COMMUNICATION"
         else:
+            # Default to Compute if no other distinct features are strong [cite: 299]
             phase = "COMPUTE"
 
-        # NOTE: Since we tuned MEMORY and COMPUTE to be the same, 
-        # both will trigger High Performance frequency.
-        final_phase = self._stabilize_phase(phase)
+        # # Stabilize to prevent rapid oscillation between phases
+        # final_phase = self._stabilize_phase(phase)
+        final_phase = phase
 
         details = {
             'phase': final_phase,
             'scores': f"Comp:{comp_score:.1f} Comm:{comm_score:.1f} Mem:{mem_score:.1f}",
             'reasons': ', '.join(reasons)
         }
-        return final_phase, details  
+        return final_phase, details
+
 
 class FrequencyController:
     def __init__(self):
@@ -687,7 +817,7 @@ class IntelligentMonitorv17:
         # # We need to define headers based on SystemMetrics + Phase Details
         fieldnames = [
             'timestamp', 'phase', 'ipc', 'miss_rate', 'pkg_power', 'dram_power',
-            'net_rx', 'net_tx', 'cpu_util_eff', 'ctx_switches', 'sync_var',
+            'net_rx', 'net_tx', 'cpu_util_eff', 'iowait', 'ctx_switches', 'sync_var', # <--- Added 'iowait'
             'scores', 'reasons'
         ]
         self.writer = csv.DictWriter(self.csv_file, fieldnames=fieldnames)
@@ -757,6 +887,7 @@ class IntelligentMonitorv17:
                     'net_rx': f"{metrics.net_rx_mbps:.1f}",
                     'net_tx': f"{metrics.net_tx_mbps:.1f}",
                     'cpu_util_eff': f"{metrics.effective_cpu_util:.1f}",
+                    'iowait': f"{metrics.iowait_pct:.1f}",
                     'ctx_switches': f"{metrics.ctx_switches:.0f}",
                     'sync_var': f"{metrics.sync_variance:.1f}",
                     'scores': details.get('scores', ''),

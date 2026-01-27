@@ -5,12 +5,13 @@ from collections import deque, Counter
 import statistics
 
 # ---------------- CONFIGURATION ----------------
-# MERGED MAPPING (The Nuclear Option for High-Speed Apps)
+# CORRECTED MAPPING: Distinct IDs for all phases to force real learning
 PHASE_MAP = {
     "COMPUTE": 0,
     "COMMUNICATION": 1,
-    "MEMORY_BOUND": 0, # <--- MAP TO 0 (Treat as COMPUTE)
-    "IDLE": 3
+    "MEMORY_BOUND": 2, # CHANGED: Map to 2 (Distinguish from Compute)
+    "IDLE": 3,
+    "STORAGE": 4       # Added Storage
 }
 REVERSE_MAP = {v: k for k, v in PHASE_MAP.items()}
 
@@ -66,25 +67,38 @@ class FastPhaseSimulator:
             comm_score = 0.0
             mem_score = 0.0
             
+            # Compute Indicators
             if pwr > dyn_pwr_comp: comp_score += W_COMP_PWR
             if ipc > dyn_ipc_target: comp_score += W_COMP_IPC
             if row['cpu_util_eff'] > T_EFF_UTIL: comp_score += W_COMP_UTIL
             
+            # Comm Indicators
             total_net = row['net_rx'] + row['net_tx']
             if total_net > T_NET_MBPS: comm_score += W_COMM_NET
-            
             if row['cpu_util_eff'] < 40.0 and pwr > 50: comm_score += W_COMM_LOW_U
-            
             if row['sync_var'] > T_SYNC_VAR: comm_score += W_COMM_VAR
             
+            # Memory Indicators
             if ipc < 1.0 and miss > dyn_miss_target: mem_score += W_MEM_MISS
-            if row['dram_power'] > 10.0: mem_score += W_MEM_DRAM
+            if row['dram_power'] > 15.0: mem_score += W_MEM_DRAM # Updated to 15.0
             
-            # Decision
-            if pwr < 50.0 and row['cpu_util_eff'] < 10:
-                raw_phase = PHASE_MAP["IDLE"]
+            # --- PRIORITY DECISION LOGIC (Matches V18) ---
+            
+            # 1. STORAGE / IDLE (Gatekeeper)
+            # High I/O wait (approx check) or Low Util+Low Power
+            iowait_val = row.get('iowait', 0.0)
+            
+            if iowait_val > 5.0 or (row['cpu_util_eff'] < 30.0 and pwr < 100):
+                 if pwr < 50.0:
+                     raw_phase = PHASE_MAP["IDLE"]
+                 else:
+                     raw_phase = PHASE_MAP["STORAGE"]
+            
+            # 2. MEMORY (Dominates Compute if score is high)
             elif mem_score > 2.0:
                 raw_phase = PHASE_MAP["MEMORY_BOUND"]
+            
+            # 3. COMM vs COMPUTE
             elif comm_score > comp_score:
                 raw_phase = PHASE_MAP["COMMUNICATION"]
             else:
@@ -120,17 +134,23 @@ def load_data():
     df_log = df_log.sort_values('timestamp')
     df_truth = df_truth.sort_values('timestamp')
 
-    # 2. DEBUG: Check raw data density
-    print(f"  Raw Log Samples: {len(df_log)}")
-    print(f"  Raw Truth Samples: {len(df_truth)}")
+    # ---------------- MICRO-PHASE FILTERING (CRITICAL) ----------------
+    # Filter out phases that are shorter than 0.1s (Nyquist limit for 0.2s sampler)
+    # These create false negatives because the monitor literally cannot see them.
+    df_truth['next_ts'] = df_truth['timestamp'].shift(-1)
+    df_truth['duration'] = df_truth['next_ts'] - df_truth['timestamp']
     
-    if len(df_truth) > 0:
-        duration = df_truth['timestamp'].iloc[-1] - df_truth['timestamp'].iloc[0]
-        print(f"  Ground Truth Duration: {duration:.2f}s")
+    # Keep rows where duration > 0.1s (or is NaN, meaning the last row)
+    pre_len = len(df_truth)
+    mask_valid = (df_truth['duration'] > 0.05) | (df_truth['duration'].isna())
+    df_truth = df_truth[mask_valid].copy()
+    
+    print(f"  Micro-phase Filter: Removed {pre_len - len(df_truth)} samples (< 100ms).")
+    # ------------------------------------------------------------------
 
-    # 3. ALIGNMENT (Relaxed: No Stability Filter)
-    # We simply look backward to find the state active at the sampling moment.
-    # We still shift -0.1s to center the 0.2s window.
+    # 2. ALIGNMENT
+    # Look backward to find the state active at the sampling moment.
+    # Shift -0.1s to center the 0.2s window.
     df_log['ts_aligned'] = df_log['timestamp'] - 0.1
     
     df_merged = pd.merge_asof(df_log, 
@@ -140,19 +160,21 @@ def load_data():
                               direction='backward',
                               suffixes=('_log', '_truth'))
     
-    # 4. Cleanup
+    # 3. Cleanup
     df_merged = df_merged.dropna(subset=['actual_phase'])
     df_merged['truth_encoded'] = df_merged['actual_phase'].map(PHASE_MAP)
+    
+    # Drop rows where we couldn't map the phase (e.g., if log has weird string)
     df_merged = df_merged.dropna(subset=['truth_encoded'])
     
     print(f"Alignment: Successfully matched {len(df_merged)} samples.")
-    
-    # 5. Debug Sample
-    if len(df_merged) > 0:
-        print("\n--- DATA SAMPLE ---")
-        print(df_merged[['phase', 'actual_phase', 'pkg_power', 'net_rx']].head(5))
+    print("\n--- SURVIVOR ANALYSIS ---")
+    print(df_merged['actual_phase'].value_counts())
+    print("-------------------------")
+    return df_merged
     
     return df_merged
+
 def objective_function(params, simulator, ground_truth):
     preds = simulator.run_with_params(params)
     correct = np.sum(np.array(preds) == ground_truth)
@@ -162,16 +184,16 @@ def objective_function(params, simulator, ground_truth):
 def run_optimization():
     df = load_data()
     if df.empty or len(df) < 10:
-        print("[ERROR] Not enough data after purification. Check if miniMD ran long enough.")
+        print("[ERROR] Not enough data after purification.")
         return
 
     simulator = FastPhaseSimulator(df)
     ground_truth = df['truth_encoded'].values
     
     bounds = [
-        (0.5, 5.0), (0.5, 5.0), (0.5, 5.0), # Weights Comp
-        (0.5, 5.0), (0.5, 5.0), (0.5, 5.0), # Weights Comm
-        (0.5, 5.0), (0.5, 5.0),             # Weights Mem
+        (0.5, 8.0), (0.5, 8.0), (0.5, 8.0), # Weights Comp (Expanded range)
+        (0.5, 8.0), (0.5, 8.0), (0.5, 8.0), # Weights Comm
+        (0.5, 8.0), (0.5, 8.0),             # Weights Mem
         (5.0, 100.0), # T_NET_MBPS 
         (50.0, 95.0), # T_EFF_UTIL 
         (2.0, 50.0),  # T_SYNC_VAR 
@@ -186,7 +208,7 @@ def run_optimization():
         strategy='best1bin',
         maxiter=50,       
         popsize=20,       
-        polish=False,     # Disable polish to handle integer logic better
+        polish=False,
         disp=True,
         workers=-1
     )
@@ -206,8 +228,8 @@ def run_optimization():
         print(f"  {name}: {val:.4f}")
 
     if acc < 60.0:
-        print("\n[NOTE] Accuracy is still low. This implies 'Memory Bound' and 'Compute' phases")
-        print("       look identical on this hardware. Consider mapping them to the same phase.")
+        print("\n[NOTE] Accuracy is < 60%. Check if 'Memory' phases are actually distinguishable.")
+        print("       If DRAM power/IPC looks identical to Compute, you may need to map MEMORY_BOUND -> 0.")
 
 if __name__ == "__main__":
     run_optimization()
