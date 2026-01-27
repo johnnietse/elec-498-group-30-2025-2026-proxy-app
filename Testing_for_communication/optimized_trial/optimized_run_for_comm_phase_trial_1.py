@@ -10,6 +10,8 @@ Key improvements:
 5. Hybrid MPI+OpenMP support
 """
 
+# doesn't seem to do what I expect, so simply ignore it for now.
+
 import subprocess
 import time
 import csv
