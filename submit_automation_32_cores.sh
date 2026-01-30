@@ -6,12 +6,17 @@
 #SBATCH --cpus-per-task=1             # Cores per task
 #SBATCH --time=18:00:00               # Max runtime (HH:MM:SS)
 #SBATCH --mem=8G
+#SBATCH --exclusive
+#SBATCH --cpu-freq=performance        # Set CPU frequency to performance mode
 #SBATCH --partition=gpu-rgrant          # Name of the queue
 #SBATCH --mail-user=20wyvs@queensu.ca
 #SBATCH --mail-type=END,FAIL
 
+export EXEC_WRAPPER="numactl --localalloc"
+
 export OMP_NUM_THREADS=1
-export OMP_PROC_BIND=false
+export OMP_PROC_BIND=true           # Changed to true to prevent migrations
+export OMP_PLACES=cores             # Pins the thread to a specific core
 
 # Run the automation script
 chmod +x automate_baseline_32_cores.sh
