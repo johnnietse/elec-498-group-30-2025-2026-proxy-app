@@ -275,7 +275,7 @@ static void write_checkpoint_sustained_io(const Atom& atom,
     std::printf("Data to write per rank: %.2f MB\n", all_data.size() / (1024.0 * 1024.0));
   }
 
-  // Write chunks until we've written all data OR reached target duration
+  // Write real checkpoint data AS FAST AS POSSIBLE (no sleep)
   while(bytes_written < all_data.size() && elapsed < target_duration_sec) {
     // Calculate how much to write in this chunk
     size_t bytes_remaining = all_data.size() - bytes_written;
@@ -304,20 +304,17 @@ static void write_checkpoint_sustained_io(const Atom& atom,
     bytes_written += this_chunk_size;
     chunk_count++;
 
-    // Sleep to control write rate (sustain I/O over time)
-    if(sleep_us > 0 && bytes_written < all_data.size()) {
-      ::usleep(static_cast<useconds_t>(sleep_us));
-    }
-
+    // NO SLEEP for real checkpoint data - write as fast as possible!
+    
     elapsed = MPI_Wtime() - io_start_time;
   }
 
   // If we've written all data but haven't reached target duration,
-  // keep writing padding data to sustain I/O
+  // keep writing padding data WITH SLEEP to sustain I/O
   if(elapsed < target_duration_sec && bytes_written >= all_data.size()) {
     if(me == 0) {
-      std::printf("All checkpoint data written (%.2f MB). Continuing I/O with padding to reach %.1f seconds...\n",
-                  bytes_written / (1024.0 * 1024.0), target_duration_sec);
+      std::printf("All checkpoint data written (%.2f MB in %.2f seconds). Continuing I/O with padding (with sleep) to reach %.1f seconds...\n",
+                  bytes_written / (1024.0 * 1024.0), elapsed, target_duration_sec);
     }
 
     // Create padding buffer (pattern to avoid all zeros)
