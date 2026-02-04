@@ -46,10 +46,67 @@
 #include <sys/types.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <dirent.h>
 
 // ========================================================================
 // EMBEDDED CHECKPOINT FUNCTIONS (replaces checkpoint.h/checkpoint.cpp)
 // ========================================================================
+
+// Clean checkpoint directory on rank 0 (remove old checkpoint files)
+// NOTE: Only removes FILES, not the directory itself (preserves symlinks!)
+static void clean_checkpoint_dir(const char* dir) {
+  int me = 0;
+  MPI_Comm_rank(MPI_COMM_WORLD, &me);
+  if(me != 0) return;
+
+  if(dir == nullptr || dir[0] == '\0') return;
+
+  struct stat st;
+  if(stat(dir, &st) != 0 || !S_ISDIR(st.st_mode)) {
+    // Directory doesn't exist, nothing to clean
+    return;
+  }
+
+  // Open directory (works with symlinks!)
+  DIR* dirp = opendir(dir);
+  if(dirp == nullptr) {
+    std::fprintf(stderr, "WARNING: Could not open checkpoint dir %s for cleanup: %s\n", 
+                 dir, std::strerror(errno));
+    return;
+  }
+
+  // Remove all files in directory (but NOT subdirectories)
+  struct dirent* entry;
+  int removed_count = 0;
+  while((entry = readdir(dirp)) != nullptr) {
+    // Skip . and ..
+    if(strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
+      continue;
+    }
+
+    // Build full path
+    char filepath[1024];
+    snprintf(filepath, sizeof(filepath), "%s/%s", dir, entry->d_name);
+
+    // Check if it's a regular file (not a directory or symlink)
+    struct stat file_st;
+    if(stat(filepath, &file_st) == 0 && S_ISREG(file_st.st_mode)) {
+      // Remove file
+      if(unlink(filepath) == 0) {
+        removed_count++;
+      } else {
+        std::fprintf(stderr, "WARNING: Could not remove %s: %s\n", 
+                     filepath, std::strerror(errno));
+      }
+    }
+  }
+
+  closedir(dirp);
+
+  if(removed_count > 0) {
+    std::printf("Cleaned %d old checkpoint file(s) from %s/\n", removed_count, dir);
+  }
+}
 
 // Make directory on rank 0 (best-effort)
 static void mkdir_rank0(const char* dir) {
@@ -67,8 +124,8 @@ static void mkdir_rank0(const char* dir) {
   }
 }
 
-// Sustained I/O checkpoint function - writes checkpoint data over specified duration
-// This version allows monitoring I/O effects over time (e.g., 30 seconds)
+// End-of-simulation checkpoint function that scales with atom count
+// Writes actual simulation data (positions, velocities, forces)
 static void write_checkpoint_sustained_io(const Atom& atom,
                                           const Comm& comm,
                                           int step,
@@ -84,6 +141,11 @@ static void write_checkpoint_sustained_io(const Atom& atom,
   MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
 
   const char* dir = (out_dir && out_dir[0]) ? out_dir : "chk";
+  
+  // Clean old checkpoint files before creating new ones
+  clean_checkpoint_dir(dir);
+  
+  // Ensure directory exists
   mkdir_rank0(dir);
 
   // Synchronize all ranks before checkpoint (clean I/O phase start)
@@ -335,10 +397,10 @@ Integrate::Integrate() {
   ckpt_at_end = 1;       // Enable end-of-simulation checkpoint by default
 
   // Sustained I/O defaults (for monitoring I/O effects)
-  ckpt_io_duration_sec = 30.0;      // 30 seconds of I/O
-  ckpt_chunk_bytes = 1024 * 1024;   // 1 MB chunks
-  ckpt_sleep_us = 100000;           // 100 ms between chunks
-  ckpt_fsync_chunks = 0;            // Don't fsync every chunk by default
+  ckpt_io_duration_sec = 30.0;
+  ckpt_chunk_bytes = 1024 * 1024;
+  ckpt_sleep_us = 100000; // 100 ms
+  ckpt_fsync_chunks = 0;
 }
 
 Integrate::~Integrate() {}
