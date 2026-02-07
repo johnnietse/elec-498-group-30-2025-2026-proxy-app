@@ -42,7 +42,11 @@ do
     START_TIME=$(date +%s%N)
     
     # Run simulation
+<<<<<<< HEAD
     mpirun -np 16 --report-bindings ./miniMD_openmpi -i in.lj.miniMD >> $LOG_FILE 2>&1
+=======
+    $EXEC_WRAPPER mpirun -np 16 --map-by core --bind-to core --report-bindings ./miniMD_openmpi -i in.lj.miniMD --ckpt 200 >> $LOG_FILE 2>&1
+>>>>>>> 2380db0f9d7809a7a8c47a42878936376acaffe9
     
     # Capture energy AFTER
     END_TIME=$(date +%s%N)
