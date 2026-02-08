@@ -2,6 +2,10 @@
 NUM_CORES=$1
 CORE_RANGE=$2
 
+export OMP_NUM_THREADS=1
+export OMP_PROC_BIND=true
+export OMP_PLACES=cores
+
 NUM_RUNS=5                    
 IDLE_MEASURE_TIME=10          # Seconds to measure background leakage
 
