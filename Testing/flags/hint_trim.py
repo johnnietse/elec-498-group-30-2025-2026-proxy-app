@@ -1,147 +1,149 @@
-#!/usr/bin/env python3
-"""
-INTELLIGENT CAPSTONE CONTROLLER - Version 27.0 (Final)
-1. COMPUTE/COMM -> MAX (2.0 GHz)
-2. MEMORY_BOUND -> MED (1.6 GHz) [Triggered only if Data > L3 Cache]
-3. IO_STORAGE   -> MIN (1.2 GHz)
-4. CORE PARKING -> Active=Target, Passive=MIN
-"""
-import sys
-import time
-import os
-import glob
-import subprocess
+# ---------------------- FREQUENCY CONTROLLER ----------------------
 
-# ---------------------- CONFIGURATION ----------------------
-HINT_FILE = "/dev/shm/minimd_phase_hint"
-POLL_INTERVAL = 0.001  # 1ms polling
-
-# ---------------------- HARDWARE CONTROL ----------------------
-class FrequencyGovernor:
-    def __init__(self):
-        self.cpu_files = []
-        self.num_cores = 0
-        self.available_freqs = []
+class DirectFrequencyController:
+    def __init__(self, cores: List[int]):
+        self.cores = cores
+        self.handles = {}
+        self.current_freqs = {} # Cache to avoid redundant writes
         
-        # 1. DETECT CORES
-        gov_files = glob.glob("/sys/devices/system/cpu/cpu*/cpufreq/scaling_governor")
-        self.num_cores = len(gov_files)
-        
-        # 2. DETECT FREQUENCIES
-        try:
-            with open("/sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies", "r") as f:
-                self.available_freqs = sorted([int(x) for x in f.read().strip().split()], reverse=True)
-        except:
-            self.available_freqs = [2400000, 1600000, 1200000]
-
-        self.FREQ_MAX = self.available_freqs[0]   # 2.4 GHz
-        self.FREQ_MED = self.available_freqs[len(self.available_freqs)//2] # 1.6 GHz
-        self.FREQ_MIN = self.available_freqs[-1]  # 1.2 GHz
-
-        print(f"[GOVERNOR] MAX: {self.FREQ_MAX}, MED: {self.FREQ_MED}, MIN: {self.FREQ_MIN}")
-
-        # 3. SETUP HANDLES
-        for i in range(self.num_cores):
-            path_set = f"/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_setspeed"
+        # Open sysfs files for writing
+        # We need to open one for EACH core because they might be independent
+        for c in cores:
+            path = f"/sys/devices/system/cpu/cpu{c}/cpufreq/scaling_setspeed"
             try:
-                try: 
-                    with open(f"/sys/devices/system/cpu/cpu{i}/cpufreq/scaling_governor", 'w') as f: f.write("userspace")
-                except: pass
-                
-                f = open(path_set, 'w')
-                self.cpu_files.append(f)
-            except:
-                self.cpu_files.append(None)
+                # Open with buffering=0 for immediate writes, or standard text
+                self.handles[c] = open(path, 'w')
+                self.current_freqs[c] = -1
+            except OSError:
+                print(f"[WARN] Could not open frequency control for Core {c}. Are you root?")
 
-    def apply_strategy(self, strategy, active_cores):
-        # STRATEGY MAPPING
-        if strategy == "PERFORMANCE": target = self.FREQ_MAX
-        elif strategy == "MEMORY":    target = self.FREQ_MED  # <-- THIS WAS MISSING
-        elif strategy == "POWERSAVE": target = self.FREQ_MIN
-        
-        for i, f_handle in enumerate(self.cpu_files):
-            if f_handle is None: continue
+    def update(self, core_data_list: List[CoreData]):
+        """
+        Apply heuristics per-core and set frequency.
+        """
+        for data in core_data_list:
+            cid = data.core_id
+            if cid not in self.handles: continue
             
-            # CORE PARKING LOGIC
-            if i in active_cores:
-                val = target
+            # --- THE HEURISTIC LOGIC ---
+            
+            # 1. IDLE / BLOCKED CHECK
+            # If the core is doing almost nothing (low cycles), save power.
+            # 1.2GHz * 0.05s = 60M cycles. If < 1M, it's barely active.
+            if data.util < 1000000: 
+                target = FREQ_MIN
+                
+            # 2. SPIN DETECTION (The "Busy Wait" Trap)
+            # High IPC but no memory access = Spinning on a lock
+            elif data.is_spinning:
+                target = FREQ_MIN
+                
+            # 3. MEMORY BOUND
+            # CPU is waiting on RAM. Higher clocks won't help.
+            elif data.mpki > MPKI_MEM_THRESHOLD: 
+                target = FREQ_MID
+                
+            # 4. COMPUTE BOUND
+            # Doing real work. Race to sleep.
             else:
-                val = self.FREQ_MIN # Park unused cores
+                target = FREQ_MAX
+            
+            # --- APPLY FREQUENCY ---
+            # IO Optimization: Only write if changed
+            if self.current_freqs[cid] != target:
+                try:
+                    h = self.handles[cid]
+                    h.seek(0)
+                    h.write(str(target))
+                    h.flush()
+                    self.current_freqs[cid] = target
+                except OSError:
+                    pass
 
-            try:
-                f_handle.seek(0)
-                f_handle.write(str(val))
-                f_handle.flush()
-            except OSError: pass
+    def close(self):
+        for h in self.handles.values():
+            h.close()
 
-# ---------------------- HELPER: FIND ACTIVE CORES ----------------------
-def get_active_cores():
-    active = set()
-    try:
-        r = subprocess.run(["pgrep", "miniMD_openmpi"], capture_output=True, text=True)
-        pids = r.stdout.strip().split()
-        if not pids: return set()
+# ---------------------- MAIN MONITOR CLASS ----------------------
 
-        for pid in pids:
-            try:
-                with open(f"/proc/{pid}/stat", 'r') as f:
-                    content = f.read()
-                    fields = content.split()
-                    if len(fields) > 38:
-                        core_id = int(fields[38])
-                        active.add(core_id)
-            except: pass
-    except: pass
-    return active
-
-# ---------------------- MAIN LOOP ----------------------
-def run_controller():
-    print(f"[INFO] V27 Final Controller. Polling {HINT_FILE}")
-    
-    gov = FrequencyGovernor()
-    last_phase = "UNKNOWN"
-    active_cores = set()
-    
-    # 1. Wait for miniMD
-    print("[INIT] Waiting for miniMD processes...")
-    while not active_cores:
-        active_cores = get_active_cores()
-        time.sleep(0.5)
-    
-    print(f"[INIT] Detected Active Cores: {sorted(list(active_cores))}")
-    print(f"[INIT] Parking all other cores to {gov.FREQ_MIN} Hz")
-
-    # 2. Wait for Hint File
-    while not os.path.exists(HINT_FILE):
-        time.sleep(0.1)
-
-    # 3. Control Loop
-    try:
-        with open(HINT_FILE, "r") as f:
+class NativeMonitor:
+    def __init__(self):
+        self.config = {
+            'rapl_path': "/sys/class/powercap/intel-rapl:0/energy_uj"
+        }
+        
+        self.collector = MetricsCollector(self.config)
+        self.controller = DirectFrequencyController(MY_CORES)
+        
+        # Setup CSV
+        self.csv_file = open(LOG_FILE, 'w', newline='')
+        fieldnames = [
+            'timestamp', 'phase', 
+            'ipc', 'miss_rate', 'pkg_pwr', 'dram_pwr', 'net_rx', 
+            'active_cores', 'ctx_switches', 'sync_var'
+        ]
+        self.writer = csv.DictWriter(self.csv_file, fieldnames=fieldnames)
+        self.writer.writeheader()
+        
+    def run(self):
+        print(f"[INFO] Native Monitor Started on Cores: {MY_CORES}")
+        print(f"[INFO] Log file: {LOG_FILE}")
+        print("Press Ctrl+C to stop.")
+        
+        try:
             while True:
-                f.seek(0)
-                phase = f.read().strip()
+                # 1. Sample (Collector handles timing internally via dt)
+                # We sleep briefly to prevent busy-waiting the python loop itself
+                time.sleep(0.05) 
                 
-                if phase and phase != last_phase:
-                    
-                    if phase == "IO_STORAGE":
-                        # DISK BOUND: SAFE TO THROTTLE
-                        gov.apply_strategy("POWERSAVE", active_cores)
-                        
-                    elif phase == "MEMORY_BOUND":
-                        # MEMORY BOUND (Verified by C++ Heuristic): SAFE TO THROTTLE
-                        gov.apply_strategy("MEMORY", active_cores)
-                        
-                    else:
-                        # COMPUTE, COMMUNICATION, SERIAL -> MAX
-                        gov.apply_strategy("PERFORMANCE", active_cores)
-                    
-                    last_phase = phase
+                # metrics = System Global Data (for logs)
+                # core_data = Per-Core Data (for controller)
+                metrics, core_data = self.collector.sample()
                 
-                time.sleep(POLL_INTERVAL)
+                # 2. Control
+                self.controller.update(core_data)
+                
+                # 3. Log
+                # We determine a "Dominant Phase" just for the log label
+                phase_label = "MIXED"
+                if metrics.ipc > 1.5: phase_label = "COMPUTE"
+                elif metrics.pkg_power < 50: phase_label = "IDLE"
+                
+                self.writer.writerow({
+                    'timestamp': f"{metrics.timestamp:.4f}",
+                    'phase': phase_label,
+                    'ipc': f"{metrics.ipc:.2f}",
+                    'miss_rate': f"{metrics.miss_rate:.2f}",
+                    'pkg_pwr': f"{metrics.pkg_power:.1f}",
+                    'dram_pwr': f"{metrics.dram_power:.1f}",
+                    'net_rx': f"{metrics.net_rx_mbps:.1f}",
+                    'active_cores': metrics.active_ranks,
+                    'ctx_switches': f"{metrics.ctx_switches:.0f}",
+                    'sync_var': f"{metrics.sync_variance:.1f}"
+                })
+                
+        except KeyboardInterrupt:
+            print("\n[STOP] Stopping...")
+        finally:
+            self.controller.close()
+            self.csv_file.close()
 
-    except KeyboardInterrupt:
-        print("\n[INFO] Stopping.")
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--cores', type=str, default="0,1,2,3,4,5,6,7", 
+                       help="Comma-separated list of cores (e.g. 0,2,4)")
+    args = parser.parse_args()
+    
+    # Override Global Config based on arguments
+    global MY_CORES
+    MY_CORES = [int(x) for x in args.cores.split(',')]
+    
+    # Ensure userspace governor (Optional check, good for safety)
+    if not os.path.exists("/sys/devices/system/cpu/cpu0/cpufreq/scaling_setspeed"):
+        print("[WARN] 'scaling_setspeed' not found. Ensure governor is set to 'userspace'.")
+
+    monitor = NativeMonitor()
+    monitor.run()
 
 if __name__ == "__main__":
-    run_controller()
+    main()
