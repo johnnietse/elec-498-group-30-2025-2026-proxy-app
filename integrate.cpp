@@ -269,6 +269,7 @@ static void write_checkpoint_sustained_io(const Atom& atom,
 
   if(me == 0) {
     std::printf("\n=== Starting Sustained I/O Checkpoint ===\n");
+    std::printf("Target duration: %.1f seconds\n", target_duration_sec);
     std::printf("Chunk size: %.2f MB\n", chunk_bytes / (1024.0 * 1024.0));
     std::printf("Sleep between chunks: %d microseconds\n", sleep_us);
     std::printf("Data to write per rank: %.2f MB\n", all_data.size() / (1024.0 * 1024.0));
@@ -312,7 +313,7 @@ static void write_checkpoint_sustained_io(const Atom& atom,
   // keep writing padding data WITH SLEEP to sustain I/O
   if(elapsed < target_duration_sec && bytes_written >= all_data.size()) {
     if(me == 0) {
-      std::printf("checkpoint data written per rank(%.2f MB in %.2f seconds). Continuing I/O with padding (with sleep) to reach %.1f seconds...\n",
+      std::printf("All checkpoint data written (%.2f MB in %.2f seconds). Continuing I/O with padding (with sleep) to reach %.1f seconds...\n",
                   bytes_written / (1024.0 * 1024.0), elapsed, target_duration_sec);
     }
 
@@ -365,7 +366,7 @@ static void write_checkpoint_sustained_io(const Atom& atom,
     double avg_bw = total_mb / actual_duration;
     
     std::printf("\n=== I/O Checkpoint Complete ===\n");
-    std::printf("Actual I/O duration: %.2f seconds \n", target_duration_sec);
+    std::printf("Actual I/O duration: %.2f seconds (target: %.1f)\n", actual_duration, target_duration_sec);
     std::printf("Checkpoint data written: %.2f MB per rank\n", data_mb);
     std::printf("Total written (with padding): %.2f MB per rank\n", total_mb);
     std::printf("Number of chunks: %zu\n", chunk_count);
@@ -441,6 +442,10 @@ void Integrate::run(Atom &atom, Force* force, Neighbor &neighbor,
 
   mass = atom.mass;
   dtforce = dtforce / mass;
+  
+  // Calculate middle timestep for checkpoint
+  int checkpoint_step = ntimes / 2;
+  
   //Use OpenMP threads only within the following loop containing the main loop.
   //Do not use OpenMP for setup and postprocessing.
   #pragma omp parallel private(i,n)
@@ -564,29 +569,175 @@ void Integrate::run(Atom &atom, Force* force, Neighbor &neighbor,
 
       if(thermo.nstat) thermo.compute(n + 1, atom, neighbor, force, timer, comm);
 
+      // Break out of parallel region at checkpoint step for I/O
+      if(ckpt_at_end && (n + 1) == checkpoint_step) {
+        #pragma omp master
+        {
+          int me = 0;
+          MPI_Comm_rank(MPI_COMM_WORLD, &me);
+          if(me == 0) {
+            std::printf("\n========================================\n");
+            std::printf("Reached mid-simulation checkpoint at timestep %d (out of %d)\n", n+1, ntimes);
+            std::printf("Exiting parallel region for I/O...\n");
+            std::printf("========================================\n");
+          }
+        }
+        break;  // Exit the parallel loop to perform checkpoint
+      }
+
     }
-  } //end OpenMP parallel
+  } //end OpenMP parallel (first half)
   
   // -------------------------------------------------------
-  // END-OF-SIMULATION SUSTAINED I/O CHECKPOINT
-  // Writes checkpoint data over specified duration (default 30 seconds)
-  // Perfect for monitoring I/O effects and frequency changes
+  // MID-SIMULATION SUSTAINED I/O CHECKPOINT
+  // Performs checkpoint at the middle timestep
   // -------------------------------------------------------
   
-  if(ckpt_at_end) {
+  if(ckpt_at_end && checkpoint_step < ntimes) {
     int me = 0;
     MPI_Comm_rank(MPI_COMM_WORLD, &me);
     
     if(me == 0) {
       std::printf("\n========================================\n");
-      std::printf("Performing end-of-simulation checkpoint with sustained I/O\n");
+      std::printf("Performing mid-simulation checkpoint with sustained I/O\n");
       std::printf("========================================\n");
     }
     
-    write_checkpoint_sustained_io(atom, comm, ntimes, ckpt_dir,
+    write_checkpoint_sustained_io(atom, comm, checkpoint_step, ckpt_dir,
                                   ckpt_io_duration_sec,
                                   ckpt_chunk_bytes,
                                   ckpt_sleep_us,
                                   ckpt_fsync_chunks);
+    
+    if(me == 0) {
+      std::printf("\n========================================\n");
+      std::printf("Resuming simulation for remaining %d timesteps\n", ntimes - checkpoint_step);
+      std::printf("========================================\n");
+    }
+    
+    // Resume simulation for second half
+    #pragma omp parallel private(i,n)
+    {
+      int next_sort = sort_every>0?sort_every:ntimes+1;
+      
+      for(n = checkpoint_step; n < ntimes; n++) {
+
+        #pragma omp barrier
+
+        x = atom.x;
+        v = atom.v;
+        f = atom.f;
+        xold = atom.xold;
+        nlocal = atom.nlocal;
+
+        initialIntegrate();
+
+        #pragma omp master
+        timer.stamp();
+
+        if((n + 1) % neighbor.every) {
+
+          comm.communicate(atom);
+          #pragma omp master
+          timer.stamp(TIME_COMM);
+
+        } else {
+          //these routines are not yet ported to OpenMP
+          {
+            if(check_safeexchange) {
+              #pragma omp master
+              {
+                double d_max = 0;
+
+                for(i = 0; i < atom.nlocal; i++) {
+                  double dx = (x[i * PAD + 0] - xold[i * PAD + 0]);
+
+                  if(dx > atom.box.xprd) dx -= atom.box.xprd;
+
+                  if(dx < -atom.box.xprd) dx += atom.box.xprd;
+
+                  double dy = (x[i * PAD + 1] - xold[i * PAD + 1]);
+
+                  if(dy > atom.box.yprd) dy -= atom.box.yprd;
+
+                  if(dy < -atom.box.yprd) dy += atom.box.yprd;
+
+                  double dz = (x[i * PAD + 2] - xold[i * PAD + 2]);
+
+                  if(dz > atom.box.zprd) dz -= atom.box.zprd;
+
+                  if(dz < -atom.box.zprd) dz += atom.box.zprd;
+
+                  double d = dx * dx + dy * dy + dz * dz;
+
+                  if(d > d_max) d_max = d;
+                }
+
+                d_max = sqrt(d_max);
+
+                if((d_max > atom.box.xhi - atom.box.xlo) || (d_max > atom.box.yhi - atom.box.ylo) || (d_max > atom.box.zhi - atom.box.zlo))
+                  printf("Warning: Atoms move further than your subdomain size, which will eventually cause lost atoms.\n"
+                  "Increase reneighboring frequency or choose a different processor grid\n"
+                  "Maximum move distance: %lf; Subdomain dimensions: %lf %lf %lf\n",
+                  d_max, atom.box.xhi - atom.box.xlo, atom.box.yhi - atom.box.ylo, atom.box.zhi - atom.box.zlo);
+
+              }
+
+            }
+
+
+            #pragma omp master
+            timer.stamp_extra_start();
+            comm.exchange(atom);
+            if(n+1>=next_sort) {
+              atom.sort(neighbor);
+              next_sort +=  sort_every;
+            }
+            comm.borders(atom);
+            #pragma omp master
+            {
+              timer.stamp_extra_stop(TIME_TEST);
+              timer.stamp(TIME_COMM);
+            }
+
+            if(check_safeexchange)
+              for(int i = 0; i < PAD * atom.nlocal; i++) xold[i] = x[i];
+          }
+
+          #pragma omp barrier
+
+          neighbor.build(atom);
+
+          // #pragma omp barrier
+
+          #pragma omp master
+          timer.stamp(TIME_NEIGH);
+        }
+
+        force->evflag = (n + 1) % thermo.nstat == 0;
+        force->compute(atom, neighbor, comm, comm.me);
+
+        #pragma omp master
+        timer.stamp(TIME_FORCE);
+
+        if(neighbor.halfneigh && neighbor.ghost_newton) {
+          comm.reverse_communicate(atom);
+
+          #pragma omp master
+          timer.stamp(TIME_COMM);
+        }
+
+        v = atom.v;
+        f = atom.f;
+        nlocal = atom.nlocal;
+
+        #pragma omp barrier
+
+        finalIntegrate();
+
+        if(thermo.nstat) thermo.compute(n + 1, atom, neighbor, force, timer, comm);
+
+      }
+    } //end OpenMP parallel (second half)
   }
 }
