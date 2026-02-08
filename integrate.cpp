@@ -269,7 +269,6 @@ static void write_checkpoint_sustained_io(const Atom& atom,
 
   if(me == 0) {
     std::printf("\n=== Starting Sustained I/O Checkpoint ===\n");
-    std::printf("Target duration: %.1f seconds\n", target_duration_sec);
     std::printf("Chunk size: %.2f MB\n", chunk_bytes / (1024.0 * 1024.0));
     std::printf("Sleep between chunks: %d microseconds\n", sleep_us);
     std::printf("Data to write per rank: %.2f MB\n", all_data.size() / (1024.0 * 1024.0));
@@ -366,7 +365,7 @@ static void write_checkpoint_sustained_io(const Atom& atom,
     double avg_bw = total_mb / actual_duration;
     
     std::printf("\n=== I/O Checkpoint Complete ===\n");
-    std::printf("Actual I/O duration: %.2f seconds (target: %.1f)\n", actual_duration, target_duration_sec);
+    std::printf("Actual I/O duration: %.2f seconds\n", actual_duration);
     std::printf("Checkpoint data written: %.2f MB per rank\n", data_mb);
     std::printf("Total written (with padding): %.2f MB per rank\n", total_mb);
     std::printf("Number of chunks: %zu\n", chunk_count);
