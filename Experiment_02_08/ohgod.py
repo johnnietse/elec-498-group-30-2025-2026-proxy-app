@@ -126,6 +126,11 @@ class DirectFrequencyController:
 
 # ================= 4. MAIN LOOP =================
 def run_monitor(cores, heartbeat=False, monitor_only=False):
+    # === ADDED: Print exactly which cores Python is watching ===
+    print(f"[PYTHON] Monitoring Worker Cores: {sorted(list(cores))}")
+    sys.stdout.flush()
+    # ===========================================================
+
     util_monitor = CoreUtilMonitor(cores)
     controller = DirectFrequencyController(cores, monitor_only=monitor_only)
 
@@ -150,17 +155,9 @@ def run_monitor(cores, heartbeat=False, monitor_only=False):
             # Logic & Control
             counts = {"LOW":0, "MID":0, "HIGH":0}
             total_u = 0
-            # for c, u in util_data.items():
-            #     if u <= UTIL_LOW_LIMIT: f, b = FREQ_MIN, "LOW"
-            #     elif u <= UTIL_HIGH_LIMIT: f, b = FREQ_MID, "MID"
-            #     else: f, b = FREQ_MAX, "HIGH"
-
-            #     controller.set_freq(c, f)
-            #     counts[b]+=1
-            #     total_u += u
 
             for c, u in util_data.items():
-                if u <= CPU_ACTIVE_THRESHOLD: f, b = FREQ_MAX, "LOW"
+                if u <= CPU_ACTIVE_THRESHOLD: f, b = FREQ_MID, "LOW"
                 else: f, b = FREQ_MAX, "HIGH"
 
                 controller.set_freq(c, f)

@@ -7,22 +7,26 @@ INPUT_FILE="in.lj.miniMD"
 RAPL_FILE="/sys/class/powercap/intel-rapl:0/energy_uj"
 MAX_RAPL_FILE="/sys/class/powercap/intel-rapl:0/max_energy_range_uj"
 
-# Frequency to reset to (in kHz)
-RESET_FREQ="2000000" 
+# Frequencies
+RESET_FREQ="2000000"
 TOTAL_CORES=32
 
 echo "=========================================================="
-echo "   CAPSTONE ENERGY TEST: ISOLATED CORES"
+echo "   CAPSTONE ENERGY TEST: NON-SEQUENTIAL CORES"
 echo "=========================================================="
 
-trap "pkill -f $PYTHON_SCRIPT; exit" INT TERM EXIT
+trap "pkill -f $PYTHON_SCRIPT; rm -f host_rankfile; exit" INT TERM EXIT
 
-# ================= CORE ALLOCATOR =================
-get_core_allocation() {
+# ================= 1. SMART CORE PARSER =================
+# Returns: "worker_core_1,worker_core_2...|monitor_core"
+get_exact_core_list() {
     local needed_ranks=$1
+    # parsing 'taskset -cp' output which looks like "pid 1234's current affinity list: 0-3,6"
     taskset -cp $$ | awk -F': ' '{print $2}' | python3 -c "
 import sys
+
 def parse_ranges(r):
+    # Turns '0-2,5,7-9' into [0,1,2,5,7,8,9]
     cores = []
     if not r: return []
     for part in r.split(','):
@@ -37,20 +41,28 @@ try:
     input_str = sys.stdin.read().strip()
     all_cores = parse_ranges(input_str)
     needed = int($needed_ranks)
+
+    # We need (Ranks + 1 Monitor) cores total
     if len(all_cores) < (needed + 1):
+        print(f'ERROR_NOT_ENOUGH_CORES:{len(all_cores)}', file=sys.stderr)
         sys.exit(1)
+
+    # Pop the LAST available core for the monitor
     mon_core = all_cores.pop()
+    
+    # Take the first N available cores for workers
     worker_cores = all_cores[:needed]
+
+    # Return CSV format
     print(f\"{','.join(map(str, worker_cores))}|{mon_core}\")
-except:
+except Exception as e:
     sys.exit(1)
 "
 }
 
 # ================= UTILS =================
 reset_all_cores() {
-    # Silence output to keep logs clean
-    # echo "   [RESET] Forcing ALL ${TOTAL_CORES} cores to ${RESET_FREQ}kHz..." >&2
+    # Reset everything to 2.0GHz to start fresh
     for (( core=0; core<TOTAL_CORES; core++ )); do
         local gov_file="/sys/devices/system/cpu/cpu$core/cpufreq/scaling_governor"
         local speed_file="/sys/devices/system/cpu/cpu$core/cpufreq/scaling_setspeed"
@@ -77,24 +89,38 @@ stop_energy_monitor() {
 run_benchmark() {
     local mode=$1
     
-    # 0. Clean Frequency Slate
     reset_all_cores
 
-    # 1. Get Isolation Info
-    local ALLOC_STR=$(get_core_allocation $MPI_RANKS)
-    if [ $? -ne 0 ]; then exit 1; fi
-    local WORKER_CORES=$(echo "$ALLOC_STR" | cut -d'|' -f1)
+    # 1. PARSE ACTUAL AVAILABLE CORES
+    local ALLOC_STR=$(get_exact_core_list $MPI_RANKS)
+    if [[ $ALLOC_STR == "ERROR"* ]]; then 
+        echo "Not enough cores available!" >&2
+        exit 1
+    fi
+
+    local WORKER_CORES_CSV=$(echo "$ALLOC_STR" | cut -d'|' -f1)
     local MONITOR_CORE=$(echo "$ALLOC_STR" | cut -d'|' -f2)
+
+    # 2. GENERATE OPENMPI RANKFILE
+    # This maps Rank 0 -> First Worker Core, Rank 1 -> Second Worker Core, etc.
+    # It completely ignores sequential logic and uses your EXACT list.
+    rm -f host_rankfile
+    local rank=0
+    IFS=',' read -ra ADDR <<< "$WORKER_CORES_CSV"
+    for core in "${ADDR[@]}"; do
+        echo "rank $rank=localhost slot=$core" >> host_rankfile
+        ((rank++))
+    done
 
     # ================= BASELINE LOGIC =================
     if [ "$mode" == "BASELINE" ]; then
         start_energy_monitor
         local start_t=$(date +%s.%N)
 
-        # taskset -c $WORKER_CORES mpirun -np $MPI_RANKS --bind-to core ./miniMD_openmpi -i $INPUT_FILE > run_baseline.log 2>&1
+        # Use Rankfile to force binding on the exact cores we own
+        export OMP_NUM_THREADS=1
         mpirun -np $MPI_RANKS \
-            --cpu-set $WORKER_CORES \
-            --bind-to core \
+            --rankfile host_rankfile \
             --report-bindings \
             ./miniMD_openmpi -i $INPUT_FILE > run_baseline.log 2>&1
 
@@ -103,31 +129,26 @@ run_benchmark() {
 
     # ================= MONITORED LOGIC =================
     elif [ "$mode" == "MONITORED" ]; then
-        # 1. Start Monitor on the MONITOR_CORE (e.g., Core 31)
-        #    This is completely safe because MPI is using 0-23.
-        taskset -c $MONITOR_CORE python3 -u $PYTHON_SCRIPT --heartbeat --cores "$WORKER_CORES" > monitor_output.log 2>&1 &
+        # 1. Start Monitor on the explicit MONITOR_CORE
+        #    Pass the CSV list of workers so Python knows exactly who to watch
+        taskset -c $MONITOR_CORE python3 -u $PYTHON_SCRIPT --heartbeat --cores "$WORKER_CORES_CSV" > monitor_output.log 2>&1 &
         MON_PID=$!
 
-        # 2. Warmup (Sleep 4s)
         sleep 4
-
-        # 3. Start Timer
+        
         start_energy_monitor
         local start_t=$(date +%s.%N)
 
-        # 4. Run MPI on WORKER_CORES (e.g., 0-23)
-        #    Using --cpu-set ensures it NEVER touches Core 31.
-       mpirun -np $MPI_RANKS \
-            --cpu-set $WORKER_CORES \
-            --bind-to core \
+        # 2. Run MPI with Rankfile
+        export OMP_NUM_THREADS=1
+        mpirun -np $MPI_RANKS \
+            --rankfile host_rankfile \
             --report-bindings \
             ./miniMD_openmpi -i $INPUT_FILE > run_monitored.log 2>&1
 
-        # 5. Stop Timer
         local end_t=$(date +%s.%N)
         local energy_raw=$(stop_energy_monitor)
 
-        # 6. Kill Monitor
         kill -SIGINT $MON_PID 2>/dev/null
         wait $MON_PID 2>/dev/null
     fi
@@ -135,7 +156,6 @@ run_benchmark() {
     # ================= CALCULATION =================
     local energy_joules=$(echo "$energy_raw / 1000000" | bc -l)
     local time_diff=$(echo "$end_t - $start_t" | bc -l)
-
     echo "$time_diff $energy_joules"
 }
 
@@ -150,14 +170,12 @@ read mon_time mon_energy <<< $(run_benchmark "MONITORED")
 echo "   Monitored: ${mon_time}s | ${mon_energy}J"
 
 # ================= RESULTS =================
-echo ""
-echo "================ RESULTS ================"
 if (( $(echo "$base_time > 0" | bc -l) )); then
     time_pct=$(echo "(($mon_time - $base_time) / $base_time) * 100" | bc -l)
     saved_j=$(echo "$base_energy - $mon_energy" | bc -l)
-    # New Metric: Energy % Saved
     energy_pct=$(echo "(($base_energy - $mon_energy) / $base_energy) * 100" | bc -l)
 
+    printf "\n================ RESULTS ================\n"
     printf "Runtime Impact: %+.2f%%\n" $time_pct
     printf "Energy Savings: %s Joules (%.2f%%)\n" $saved_j $energy_pct
 else

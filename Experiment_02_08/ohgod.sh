@@ -4,24 +4,29 @@
 MPI_RANKS=${1:-8}
 PYTHON_SCRIPT="test.py"
 INPUT_FILE="in.lj.miniMD"
-# Verify your RAPL path, this is standard for Intel
 RAPL_FILE="/sys/class/powercap/intel-rapl:0/energy_uj"
 MAX_RAPL_FILE="/sys/class/powercap/intel-rapl:0/max_energy_range_uj"
 
+# Frequencies
+RESET_FREQ="2000000"
+TOTAL_CORES=32
+
 echo "=========================================================="
-echo "   CAPSTONE ENERGY TEST: ISOLATED CORES"
+echo "   CAPSTONE ENERGY TEST: NON-SEQUENTIAL CORES"
 echo "=========================================================="
 
-# Trap: Ensures python dies if you Ctrl+C the bash script
-trap "pkill -f $PYTHON_SCRIPT; exit" INT TERM EXIT
+trap "pkill -f $PYTHON_SCRIPT; rm -f host_rankfile; exit" INT TERM EXIT
 
-# ================= CORE ALLOCATOR =================
-# Allocates first N cores to Workers, last core to Monitor
-get_core_allocation() {
+# ================= 1. SMART CORE PARSER =================
+# Returns: "worker_core_1,worker_core_2...|monitor_core"
+get_exact_core_list() {
     local needed_ranks=$1
+    # parsing 'taskset -cp' output which looks like "pid 1234's current affinity list: 0-3,6"
     taskset -cp $$ | awk -F': ' '{print $2}' | python3 -c "
 import sys
+
 def parse_ranges(r):
+    # Turns '0-2,5,7-9' into [0,1,2,5,7,8,9]
     cores = []
     if not r: return []
     for part in r.split(','):
@@ -37,24 +42,37 @@ try:
     all_cores = parse_ranges(input_str)
     needed = int($needed_ranks)
 
-    # Check we have enough cores (Rank + 1 Monitor)
+    # We need (Ranks + 1 Monitor) cores total
     if len(all_cores) < (needed + 1):
-        print(f'ERROR: Need {needed+1} cores, but only have {len(all_cores)}', file=sys.stderr)
+        print(f'ERROR_NOT_ENOUGH_CORES:{len(all_cores)}', file=sys.stderr)
         sys.exit(1)
 
+    # Pop the LAST available core for the monitor
     mon_core = all_cores.pop()
+
+    # Take the first N available cores for workers
     worker_cores = all_cores[:needed]
 
-    # === FIX: Use double quotes on the outside ===
+    # Return CSV format
     print(f\"{','.join(map(str, worker_cores))}|{mon_core}\")
-
 except Exception as e:
-    print(f'ERROR: {e}', file=sys.stderr)
     sys.exit(1)
 "
 }
 
-# ================= ENERGY HELPERS =================
+# ================= UTILS =================
+reset_all_cores() {
+    # Reset everything to 2.0GHz to start fresh
+    for (( core=0; core<TOTAL_CORES; core++ )); do
+        local gov_file="/sys/devices/system/cpu/cpu$core/cpufreq/scaling_governor"
+        local speed_file="/sys/devices/system/cpu/cpu$core/cpufreq/scaling_setspeed"
+        if [ -w "$gov_file" ]; then
+            echo "userspace" > "$gov_file" 2>/dev/null
+            echo "$RESET_FREQ" > "$speed_file" 2>/dev/null
+        fi
+    done
+}
+
 start_energy_monitor() {
     cat "$RAPL_FILE" > start_snapshot.tmp 2>/dev/null || echo "0" > start_snapshot.tmp
 }
@@ -63,7 +81,6 @@ stop_energy_monitor() {
     local END_VAL=$(cat "$RAPL_FILE" 2>/dev/null || echo 0)
     local START_VAL=$(cat start_snapshot.tmp 2>/dev/null || echo 0)
     local MAX_VAL=$(cat "$MAX_RAPL_FILE" 2>/dev/null || echo 262143328850)
-    # Handle overflow if counter reset
     python3 -c "print($END_VAL - $START_VAL if ($END_VAL - $START_VAL) >= 0 else ($END_VAL - $START_VAL) + $MAX_VAL)"
     rm -f start_snapshot.tmp
 }
@@ -72,58 +89,73 @@ stop_energy_monitor() {
 run_benchmark() {
     local mode=$1
 
-    # 1. Calculate Isolation
-    local ALLOC_STR=$(get_core_allocation $MPI_RANKS)
+    reset_all_cores
 
-    # If python failed, stop immediately
-    if [ $? -ne 0 ] || [[ $ALLOC_STR == "ERROR"* ]]; then
-        echo "Core allocation failed: $ALLOC_STR" >&2
+    # 1. PARSE ACTUAL AVAILABLE CORES
+    local ALLOC_STR=$(get_exact_core_list $MPI_RANKS)
+    if [[ $ALLOC_STR == "ERROR"* ]]; then
+        echo "Not enough cores available!" >&2
         exit 1
     fi
 
-    local WORKER_CORES=$(echo "$ALLOC_STR" | cut -d'|' -f1)
+    local WORKER_CORES_CSV=$(echo "$ALLOC_STR" | cut -d'|' -f1)
     local MONITOR_CORE=$(echo "$ALLOC_STR" | cut -d'|' -f2)
 
-    if [ "$mode" == "MONITORED" ]; then
-        echo "   [ISOLATION] Workers: $WORKER_CORES | Monitor: $MONITOR_CORE" >&2
-    fi
+    # 2. GENERATE OPENMPI RANKFILE
+    # This maps Rank 0 -> First Worker Core, Rank 1 -> Second Worker Core, etc.
+    # It completely ignores sequential logic and uses your EXACT list.
+    rm -f host_rankfile
+    local rank=0
+    IFS=',' read -ra ADDR <<< "$WORKER_CORES_CSV"
+    for core in "${ADDR[@]}"; do
+        echo "rank $rank=localhost slot=$core" >> host_rankfile
+        ((rank++))
+    done
 
-    start_energy_monitor
-    local start_t=$(date +%s.%N)
-
+    # ================= BASELINE LOGIC =================
     if [ "$mode" == "BASELINE" ]; then
-        # Run standard, bound to worker cores only
-        taskset -c $WORKER_CORES mpirun -np $MPI_RANKS --bind-to core ./miniMD_openmpi -i $INPUT_FILE > run_baseline.log 2>&1
+        start_energy_monitor
+        local start_t=$(date +%s.%N)
 
+        # Use Rankfile to force binding on the exact cores we own
+        export OMP_NUM_THREADS=1
+        mpirun -np $MPI_RANKS \
+            --rankfile host_rankfile \
+            --report-bindings \
+            ./miniMD_openmpi -i $INPUT_FILE > run_baseline.log 2>&1
+
+        local energy_raw=$(stop_energy_monitor)
+        local end_t=$(date +%s.%N)
+
+    # ================= MONITORED LOGIC =================
     elif [ "$mode" == "MONITORED" ]; then
-        # 1. Start Monitor on its EXCLUSIVE core
-        #    -u: Unbuffered output (logs immediately)
-        #    --heartbeat: Prints utilization status every 0.5s
-        taskset -c $MONITOR_CORE python3 -u $PYTHON_SCRIPT --heartbeat --cores "$WORKER_CORES" > monitor_output.log 2>&1 &
+        # 1. Start Monitor on the explicit MONITOR_CORE
+        #    Pass the CSV list of workers so Python knows exactly who to watch
+        taskset -c $MONITOR_CORE python3 -u $PYTHON_SCRIPT --heartbeat --cores "$WORKER_CORES_CSV" > monitor_output.log 2>&1 &
         MON_PID=$!
 
-        # 2. Wait 4 Seconds as requested (Monitor warms up)
         sleep 4
 
-        # 3. Check if monitor crashed
-        if ! kill -0 $MON_PID 2>/dev/null; then
-            echo "ERROR: Monitor died early! Check monitor_output.log" >&2
-        fi
+        start_energy_monitor
+        local start_t=$(date +%s.%N)
 
-        # 4. Run App on WORKER cores only
-        taskset -c $WORKER_CORES mpirun -np $MPI_RANKS --bind-to core ./miniMD_openmpi -i $INPUT_FILE > run_monitored.log 2>&1
+        # 2. Run MPI with Rankfile
+        export OMP_NUM_THREADS=1
+        mpirun -np $MPI_RANKS \
+            --rankfile host_rankfile \
+            --report-bindings \
+            ./miniMD_openmpi -i $INPUT_FILE > run_monitored.log 2>&1
 
-        # 5. Stop Monitor Instantly
+        local end_t=$(date +%s.%N)
+        local energy_raw=$(stop_energy_monitor)
+
         kill -SIGINT $MON_PID 2>/dev/null
         wait $MON_PID 2>/dev/null
     fi
 
-    local energy_raw=$(stop_energy_monitor)
-    local end_t=$(date +%s.%N)
-
+    # ================= CALCULATION =================
     local energy_joules=$(echo "$energy_raw / 1000000" | bc -l)
     local time_diff=$(echo "$end_t - $start_t" | bc -l)
-
     echo "$time_diff $energy_joules"
 }
 
@@ -138,15 +170,14 @@ read mon_time mon_energy <<< $(run_benchmark "MONITORED")
 echo "   Monitored: ${mon_time}s | ${mon_energy}J"
 
 # ================= RESULTS =================
-echo ""
-echo "================ RESULTS ================"
-# Avoid division by zero if baseline failed
 if (( $(echo "$base_time > 0" | bc -l) )); then
     time_pct=$(echo "(($mon_time - $base_time) / $base_time) * 100" | bc -l)
     saved_j=$(echo "$base_energy - $mon_energy" | bc -l)
+    energy_pct=$(echo "(($base_energy - $mon_energy) / $base_energy) * 100" | bc -l)
 
+    printf "\n================ RESULTS ================\n"
     printf "Runtime Impact: %+.2f%%\n" $time_pct
-    printf "Energy Savings: %s Joules\n" $saved_j
+    printf "Energy Savings: %s Joules (%.2f%%)\n" $saved_j $energy_pct
 else
-    echo "Error: Baseline time was 0 (Did the run fail?)"
+    echo "Error: Baseline time was 0"
 fi
