@@ -11,18 +11,18 @@ import ctypes
 from ctypes import c_int, c_uint16, c_uint32, c_uint64, c_longlong
 
 # ================= CONFIGURATION =================
-APP_NAME = "miniMD" 
-LOOP_SLEEP = 0.5 
+APP_NAME = "miniMD"
+LOOP_SLEEP = 0.5
 
 # Frequency Values (AMD EPYC 7551P)
-FREQ_MAX = 2000000 
-FREQ_MID = 1600000 
-FREQ_MIN = 1200000 
+FREQ_MAX = 2000000
+FREQ_MID = 1600000
+FREQ_MIN = 1200000
 
 # Thresholds
 GLOBAL_IO_THRESHOLD_MB = 15.0 # Checkpointing
 UTIL_IDLE_THRESHOLD = 10.0    # MPI Waits
-IPC_MEM_BOUND = 0.8           # < 0.6 means stalled on RAM (Target MIN freq)
+IPC_MEM_BOUND = 0.8           # < 0.8 means stalled on RAM (Target MID freq)
 IPC_MIXED = 1.0               # < 1.0 means mixed (Target MID freq)
 
 # ================= LOW LEVEL PERF =================
@@ -49,39 +49,13 @@ def perf_event_open(attr, pid, cpu, group_fd, flags):
     return libc.syscall(__NR_perf_event_open, ctypes.byref(attr), c_int(pid), c_int(cpu), c_int(group_fd), c_longlong(flags))
 
 # ================= HARDWARE MONITORS =================
-
-class SystemDiskMonitor:
-    def __init__(self):
-        self.last_sectors = -1
-        self.sector_size = 512
-        
-    def get_io_mb(self, dt):
-        if dt <= 0: return 0.0
-        curr = 0
-        try:
-            with open("/proc/diskstats", "r") as f:
-                for line in f:
-                    parts = line.split()
-                    if parts[2].startswith("loop") or parts[2].startswith("ram"): continue
-                    try: curr += int(parts[9]) # Field 9: write sectors
-                    except: pass
-        except: return 0.0
-        
-        speed = 0.0
-        if self.last_sectors != -1:
-            diff = curr - self.last_sectors
-            if diff < 0: diff = 0
-            speed = (diff * self.sector_size / 1024 / 1024) / dt
-        self.last_sectors = curr
-        return speed
-
 class CoreUtilMonitor:
     def __init__(self, cores):
         self.cores = set(cores)
         self.prev = {}
         try: self.f = open("/proc/stat", "r")
         except: pass
-    
+
     def sample(self):
         if not hasattr(self, 'f'): return {}
         self.f.seek(0)
@@ -92,16 +66,57 @@ class CoreUtilMonitor:
             if len(parts[0]) == 3: continue
             c = int(parts[0][3:])
             if c not in self.cores: continue
-            
+
             idle = int(parts[4]) + int(parts[5])
             total = sum(int(x) for x in parts[1:])
-            
+
             if c in self.prev:
                 dt = total - self.prev[c][0]
                 di = idle - self.prev[c][1]
                 res[c] = (1.0 - (di/dt))*100.0 if dt > 0 else 0.0
             self.prev[c] = (total, idle)
         return res
+
+# ================= IO DETECTOR =============================
+class IODetector:
+    def __init__(self):
+        self.handles = {}
+        self.last_wchar = {}
+
+    def get_write_mb(self, pids, dt):
+        if dt <= 0: return 0.0
+
+        # Lazy open
+        for pid in pids:
+            if pid not in self.handles:
+                try: self.handles[pid] = open(f"/proc/{pid}/io", "r")
+                except: pass
+
+        total_delta = 0
+        
+        # Iterate over open handles
+        for pid in list(self.handles.keys()):
+            if pid not in pids:
+                try: self.handles[pid].close()
+                except: pass
+                del self.handles[pid]
+                if pid in self.last_wchar: del self.last_wchar[pid]
+                continue
+
+            try:
+                f = self.handles[pid]
+                f.seek(0)
+                for line in f:
+                    if line.startswith("wchar:"):
+                        val = int(line.split()[1])
+                        if pid in self.last_wchar:
+                            delta = val - self.last_wchar[pid]
+                            if delta > 0: total_delta += delta
+                        self.last_wchar[pid] = val
+                        break
+            except: pass
+            
+        return (total_delta / 1024 / 1024) / dt
 
 # ================= PER-PROCESS IPC MONITOR =================
 class ProcessIPC:
@@ -117,8 +132,7 @@ class ProcessIPC:
         attr = PerfEventAttr()
         attr.type = PERF_TYPE_HARDWARE
         attr.config = cfg
-        # disabled=1, exclude_kernel=1, exclude_hv=1
-        attr.flags = (1 << 0) | (1 << 5) | (1 << 6) 
+        attr.flags = (1 << 0) | (1 << 5) | (1 << 6)
         fd = perf_event_open(attr, self.pid, -1, -1, 0)
         if fd > 0: libc.ioctl(fd, 0x2400, 0) # Enable
         return fd
@@ -162,7 +176,7 @@ class Controller:
                 self.handles[core].flush()
                 self.last[core] = freq
             except: pass
-            
+
     def reset(self):
         for c in self.handles: self.set(c, FREQ_MAX)
     def close(self):
@@ -182,7 +196,6 @@ def scan_pids(app_name, cores):
         for pid in pids:
             try:
                 with open(f"/proc/{pid}/stat", 'r') as f:
-                    # field 38 is processor
                     c = int(f.read().split()[38])
                     if c in cores: pmap[c] = pid
             except: pass
@@ -204,12 +217,12 @@ def main():
     cores.sort()
 
     print(f"[*] Monitor Started. Cores: {cores}")
-    
+
     ctl = Controller(cores)
-    disk = SystemDiskMonitor()
+    io_det = IODetector()
     util = CoreUtilMonitor(cores)
-    ipc_mons = {} # {core: ProcessIPC}
-    
+    ipc_mons = {} 
+
     # Initial scan
     pmap = scan_pids(APP_NAME, cores)
     for c, pid in pmap.items():
@@ -225,56 +238,55 @@ def main():
             dt = now - last_time
             last_time = now
 
-            # Rescan occasionally if PIDs are missing (e.g. they died or moved)
             if len(ipc_mons) < len(cores):
                 pmap = scan_pids(APP_NAME, cores)
                 for c, pid in pmap.items():
                     if c not in ipc_mons: ipc_mons[c] = ProcessIPC(pid)
 
             # 1. Gather Metrics
-            io_mb = disk.get_io_mb(dt)
-            u_data = util.sample()  # FIXED TYPO HERE
+            curr_pids = list(pmap.values())
             
+            # --- FIX APPLIED HERE ---
+            io_mb = io_det.get_write_mb(curr_pids, dt) 
+            # ------------------------
+            
+            u_data = util.sample()
+
             # 2. Decision
             hb = []
-            
-            # Global Override for I/O
             io_override = (io_mb > GLOBAL_IO_THRESHOLD_MB)
 
             for c in cores:
                 u = u_data.get(c, 0)
                 ipc = 0.0
-                
-                # Get IPC if we have a monitor
+
                 if c in ipc_mons:
-                    if ipc_mons[c].valid: 
+                    if ipc_mons[c].valid:
                         ipc = ipc_mons[c].get_ipc()
-                    else: 
-                        del ipc_mons[c] # Handle closed process
+                    else:
+                        del ipc_mons[c]
 
                 # --- THE TRIPLE THREAT LOGIC ---
-                # Priority 1: Global I/O (Disk Saturation)
                 if io_override:
                     state, target = "G_IO", FREQ_MIN
-                
-                # Priority 2: Core Idle (MPI Wait)
+
                 elif u < UTIL_IDLE_THRESHOLD:
-                    state, target = "IDLE", FREQ_MID
-                
-                # Priority 3: Memory Bound (Active but stalled on RAM)
+                    # OPTIMIZATION: Use MIN for Idle
+                    state, target = "IDLE", FREQ_MIN 
+                elif u <= 1:
+                    state, target = "INACTIVE", FREQ_MIN
+
                 elif ipc < IPC_MEM_BOUND:
                     state, target = "MEM ", FREQ_MID
-                
-                # Priority 4: Mixed Workload
+
                 elif ipc < IPC_MIXED:
                     state, target = "MIX ", FREQ_MID
-                
-                # Priority 5: Compute Bound
+
                 else:
                     state, target = "COMP", FREQ_MAX
 
                 ctl.set(c, target)
-                
+
                 if args.heartbeat:
                     hb.append(f"C{c}:[{state}|{int(u)}%|{ipc:.2f}]")
 

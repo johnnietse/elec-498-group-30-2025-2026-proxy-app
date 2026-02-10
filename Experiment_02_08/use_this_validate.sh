@@ -128,6 +128,21 @@ run_benchmark() {
         # 3. If you use OpenMP threads inside MPI ranks:
         export OMP_WAIT_POLICY=ACTIVE
         export OMP_PROC_BIND=false
+
+        # ---------------------------------------------------------
+        # 2. FORCE HARDWARE AWAKE (THE HEATER TRICK)
+        # ---------------------------------------------------------
+        # We launch a low-priority infinite loop on every worker core.
+        # It only runs when miniMD pauses for I/O, forcing the CPU 
+        # to stay at 100% Util / 2.0 GHz instead of sleeping.
+        HEATER_PIDS=""
+        IFS=',' read -ra CORES <<< "$WORKER_CORES_CSV"
+        for core in "${CORES[@]}"; do
+            # nice -n 19 means "lowest priority" -> won't slow down miniMD
+            taskset -c $core nice -n 19 python3 -c 'while True: pass' > /dev/null 2>&1 & 
+            HEATER_PIDS="$HEATER_PIDS $!"
+        done
+        
         start_energy_monitor
         local start_t=$(date +%s.%N)
 
