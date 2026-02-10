@@ -112,8 +112,22 @@ run_benchmark() {
         ((rank++))
     done
 
+    
+
     # ================= BASELINE LOGIC =================
     if [ "$mode" == "BASELINE" ]; then
+        # =======================================================
+        #  OPTIMIZATION: FORCE MPI TO YIELD (SLEEP) WHEN WAITING
+        # =======================================================
+        # 1. Tell OpenMPI to yield the processor when idle
+        export OMPI_MCA_mpi_yield_when_idle=0
+        
+        # 2. Adjust the pause count to yield sooner (optional but recommended)
+        export OMPI_MCA_opal_progress_yield_when_idle=0
+
+        # 3. If you use OpenMP threads inside MPI ranks:
+        export OMP_WAIT_POLICY=ACTIVE
+        export OMP_PROC_BIND=false
         start_energy_monitor
         local start_t=$(date +%s.%N)
 
@@ -129,6 +143,18 @@ run_benchmark() {
 
     # ================= MONITORED LOGIC =================
     elif [ "$mode" == "MONITORED" ]; then
+        # =======================================================
+        #  OPTIMIZATION: FORCE MPI TO YIELD (SLEEP) WHEN WAITING
+        # =======================================================
+        # 1. Tell OpenMPI to yield the processor when idle
+        export OMPI_MCA_mpi_yield_when_idle=1
+        
+        # 2. Adjust the pause count to yield sooner (optional but recommended)
+        export OMPI_MCA_opal_progress_yield_when_idle=1
+
+        # 3. If you use OpenMP threads inside MPI ranks:
+        export OMP_WAIT_POLICY=PASSIVE
+        export OMP_PROC_BIND=false
         # 1. Start Monitor on the explicit MONITOR_CORE
         #    Pass the CSV list of workers so Python knows exactly who to watch
         taskset -c $MONITOR_CORE python3 -u $PYTHON_SCRIPT --heartbeat --cores "$WORKER_CORES_CSV" > monitor_output.log 2>&1 &
