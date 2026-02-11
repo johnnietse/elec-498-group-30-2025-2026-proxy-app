@@ -93,7 +93,7 @@ class IODetector:
                 except: pass
 
         total_delta = 0
-
+        
         # Iterate over open handles
         for pid in list(self.handles.keys()):
             if pid not in pids:
@@ -115,7 +115,7 @@ class IODetector:
                         self.last_wchar[pid] = val
                         break
             except: pass
-
+            
         return (total_delta / 1024 / 1024) / dt
 
 # ================= PER-PROCESS IPC MONITOR =================
@@ -221,7 +221,7 @@ def main():
     ctl = Controller(cores)
     io_det = IODetector()
     util = CoreUtilMonitor(cores)
-    ipc_mons = {}
+    ipc_mons = {} 
 
     # Initial scan
     pmap = scan_pids(APP_NAME, cores)
@@ -245,11 +245,11 @@ def main():
 
             # 1. Gather Metrics
             curr_pids = list(pmap.values())
-
+            
             # --- FIX APPLIED HERE ---
-            io_mb = io_det.get_write_mb(curr_pids, dt)
+            io_mb = io_det.get_write_mb(curr_pids, dt) 
             # ------------------------
-
+            
             u_data = util.sample()
 
             # 2. Decision
@@ -272,7 +272,7 @@ def main():
 
                 elif u < UTIL_IDLE_THRESHOLD:
                     # OPTIMIZATION: Use MIN for Idle
-                    state, target = "IDLE", FREQ_MIN
+                    state, target = "IDLE", FREQ_MIN 
                 elif u <= 1:
                     state, target = "INACTIVE", FREQ_MIN
 
