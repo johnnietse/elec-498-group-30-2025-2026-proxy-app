@@ -8,25 +8,28 @@ import subprocess
 import signal
 import threading
 import ctypes
+import math
 from ctypes import c_int, c_uint16, c_uint32, c_uint64, c_longlong
 
 # ================= CONFIGURATION =================
 APP_NAME = "miniMD"
-LOOP_SLEEP = 0.5
+LOOP_SLEEP = 0.5    # The "I" interval from the paper
+PWM_RESOLUTION = 0.01 # Check for frequency switches every 10ms
 
-# Frequency Values (AMD EPYC 7551P)
-FREQ_MAX = 2000000
-FREQ_MID = 1600000
+# Available Discrete Frequencies (Sorted)
+FREQ_AVAIL = [1200000, 1600000, 2000000] 
+
+# Explicit Definitions for Logic
 FREQ_MIN = 1200000
+FREQ_MID = 1600000
+FREQ_MAX = 2000000
 
 # Thresholds
-GLOBAL_IO_THRESHOLD_MB = 15.0 
-UTIL_IDLE_THRESHOLD = 10.0    
-IPC_MEM_BOUND = 0.8           
-IPC_MIXED = 1.0               
+GLOBAL_IO_THRESHOLD_MB = 100.0  # High threshold to avoid false positives
+# Note: Hybrid thresholds (IPC_MEM_BOUND, etc.) are REMOVED for pure Beta logic.
 
 # Beta Config
-SLOWDOWN_LIMIT = 0.05  # Allow 5% slowdown target
+SLOWDOWN_LIMIT = 0.015  # 'delta' in the paper (5%)
 
 # ================= LOW LEVEL PERF =================
 PERF_TYPE_HARDWARE = 0
@@ -110,7 +113,7 @@ class IODetector:
             except: pass
         return (total_delta / 1024 / 1024) / dt
 
-# ================= IPC & MIPS MONITOR =================
+# ================= IPC MONITOR =================
 class ProcessIPC:
     def __init__(self, pid):
         self.pid = pid
@@ -143,7 +146,7 @@ class ProcessIPC:
         self.prev_c = curr_c
         
         ipc = (di / dc) if dc > 0 else 0.0
-        return ipc, di # Return IPC and raw instruction delta
+        return ipc, di
 
     def close(self):
         if self.fd_instr > 0: os.close(self.fd_instr)
@@ -152,8 +155,7 @@ class ProcessIPC:
 # ================= BETA OPTIMIZER =================
 class BetaOptimizer:
     def __init__(self):
-        # We only care about optimization between MAX and MID for compute
-        self.mips_table = {FREQ_MAX: 0.0, FREQ_MID: 0.0}
+        self.mips_table = {f: 0.0 for f in FREQ_AVAIL}
         self.beta = 1.0
 
     def update(self, current_freq, mips):
@@ -161,15 +163,15 @@ class BetaOptimizer:
         self.mips_table[current_freq] = mips
         
         mips_max = self.mips_table[FREQ_MAX]
-        mips_mid = self.mips_table[FREQ_MID]
+        # Find the next available frequency below max for beta calc
+        f_next = FREQ_AVAIL[-2] 
+        mips_next = self.mips_table[f_next]
 
-        if mips_max == 0 or mips_mid == 0: return
+        if mips_max == 0 or mips_next == 0: return
 
-        # Calculate Beta between MAX and MID
-        # Beta = ( (f_max/f_mid) - 1 ) / ( (mips_max/mips_mid) - 1 )
-        # Simplification for robustness:
-        x = (FREQ_MAX / FREQ_MID) - 1.0
-        y = (mips_max / mips_mid) - 1.0
+        # Beta = ( (f_max/f_next) - 1 ) / ( (mips_max/mips_next) - 1 )
+        x = (FREQ_MAX / f_next) - 1.0
+        y = (mips_max / mips_next) - 1.0
         
         if abs(x) > 1e-9:
             self.beta = y / x
@@ -178,16 +180,65 @@ class BetaOptimizer:
         
         self.beta = max(0.01, min(2.0, self.beta))
 
-    def get_target_freq(self):
-        # f* = f_max / (1 + slack / beta)
-        target = FREQ_MAX / (1.0 + SLOWDOWN_LIMIT / self.beta)
-        return target
+    def get_f_star(self):
+        # Calculate optimal frequency f*
+        # f* = f_max / (1 + delta / beta)
+        delta = SLOWDOWN_LIMIT
+        f_star = FREQ_MAX / (1.0 + delta / self.beta)
+        
+        # SAFETY CLAMP: 
+        # If we are active, never drop below MID (1.6GHz)
+        f_star = max(FREQ_MID, f_star)
+        
+        return f_star
+
+    def get_pwm_params(self, f_star):
+        # Step 3(a): Figure out fj and fj+1
+        # fj <= f* < fj+1
+        
+        # Clamp f_star within hardware limits
+        f_star = max(FREQ_AVAIL[0], min(FREQ_AVAIL[-1], f_star))
+
+        # Find neighbors
+        f_j = FREQ_AVAIL[0]
+        f_next = FREQ_AVAIL[-1]
+        
+        for i in range(len(FREQ_AVAIL) - 1):
+            if FREQ_AVAIL[i] <= f_star <= FREQ_AVAIL[i+1]:
+                f_j = FREQ_AVAIL[i]
+                f_next = FREQ_AVAIL[i+1]
+                break
+        
+        # Edge case: exact match
+        if f_j == f_next:
+            return f_j, f_next, 1.0
+
+        # Step 3(b): Compute ratio r
+        # Formula: r = [ (1 + delta/beta)/f_max - 1/f_next ] / [ 1/fj - 1/f_next ]
+        
+        delta = SLOWDOWN_LIMIT
+        term_target = (1.0 + delta / self.beta) / FREQ_MAX
+        term_next = 1.0 / f_next
+        term_j = 1.0 / f_j
+        
+        numerator = term_target - term_next
+        denominator = term_j - term_next
+        
+        if abs(denominator) < 1e-12:
+            r = 1.0 # Should not happen given distinct neighbors
+        else:
+            r = numerator / denominator
+            
+        # Clamp r [0, 1]
+        r = max(0.0, min(1.0, r))
+        
+        return f_j, f_next, r
 
 # ================= CONTROLLER =================
 class Controller:
     def __init__(self, cores):
         self.handles = {}
-        self.last = {}
+        self.last = {} # Cache last written freq
         for c in cores:
             try:
                 with open(f"/sys/devices/system/cpu/cpu{c}/cpufreq/scaling_governor", 'w') as f:
@@ -197,10 +248,11 @@ class Controller:
             except: pass
 
     def set(self, core, freq):
+        # Optimization: Only write if value changed
         if core in self.handles and self.last.get(core) != freq:
             try:
                 self.handles[core].seek(0)
-                self.handles[core].write(str(freq))
+                self.handles[core].write(str(int(freq)))
                 self.handles[core].flush()
                 self.last[core] = freq
             except: pass
@@ -230,6 +282,30 @@ def scan_pids(app_name, cores):
     except: pass
     return pmap
 
+def emulate_pwm(ctl, pwm_map, duration):
+    """
+    Simultaneously emulates duty cycles for all cores.
+    pwm_map: { core_id: (freq_low, freq_high, time_at_low) }
+    """
+    start = time.time()
+    while True:
+        now = time.time()
+        elapsed = now - start
+        
+        if elapsed >= duration:
+            break
+            
+        for c, (f_j, f_next, t_low) in pwm_map.items():
+            # Step 3(c): Run r*I seconds at f_j
+            # Step 3(d): Run (1-r)*I seconds at f_j+1
+            
+            if elapsed < t_low:
+                ctl.set(c, f_j)
+            else:
+                ctl.set(c, f_next)
+                
+        time.sleep(PWM_RESOLUTION) # Small sleep to yield CPU
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--cores', type=str, required=True)
@@ -244,32 +320,33 @@ def main():
         else: cores.append(int(part))
     cores.sort()
 
-    print(f"[*] Beta-Integrated Monitor Started. Cores: {cores}")
+    print(f"[*] Pure Beta PWM Emulator Started. Cores: {cores}")
 
     ctl = Controller(cores)
     io_det = IODetector()
     util = CoreUtilMonitor(cores)
     ipc_mons = {} 
-    
-    # NEW: Dictionary of optimizers
     betas = {c: BetaOptimizer() for c in cores}
-
-    # Initial scan
+    
     pmap = scan_pids(APP_NAME, cores)
     for c, pid in pmap.items():
         ipc_mons[c] = ProcessIPC(pid)
 
-    last_time = time.time()
-    util.sample() # Prime
+    # Prime monitors
+    util.sample() 
+    last_loop_time = time.time()
 
     try:
         while not stop_event.is_set():
-            time.sleep(LOOP_SLEEP)
+            # NOTE: We do NOT use time.sleep(LOOP_SLEEP) here.
+            # We use the emulate_pwm function at the end of the loop.
+            
             now = time.time()
-            dt = now - last_time
-            last_time = now
+            dt = now - last_loop_time
+            last_loop_time = now
             if dt <= 0: dt = 0.001
 
+            # Refresh PIDs
             if len(ipc_mons) < len(cores):
                 pmap = scan_pids(APP_NAME, cores)
                 for c, pid in pmap.items():
@@ -280,9 +357,12 @@ def main():
             io_mb = io_det.get_write_mb(curr_pids, dt)
             u_data = util.sample()
 
-            # 2. Decision
+            # 2. Decision & PWM Calculation
             hb = []
             io_override = (io_mb > GLOBAL_IO_THRESHOLD_MB)
+            
+            # Map for the PWM Emulator: {core: (f_low, f_high, time_at_low)}
+            pwm_execution_map = {}
 
             for c in cores:
                 u = u_data.get(c, 0)
@@ -295,56 +375,69 @@ def main():
                     else:
                         del ipc_mons[c]
 
-                # --- DECISION LOGIC ---
+                # Default Logic (Fallbacks)
+                f_target_low = FREQ_MIN
+                f_target_high = FREQ_MIN
+                ratio_r = 1.0 # 100% at low
+                state = "INIT"
+                f_star_disp = 0
+
                 if io_override:
-                    state, target = "G_IO", FREQ_MIN
-
-                elif u < UTIL_IDLE_THRESHOLD:
-                    state, target = "IDLE", FREQ_MIN
-                
-                elif u <= 1:
-                    state, target = "INAC", FREQ_MIN
-
-                elif ipc < IPC_MEM_BOUND:
-                    state, target = "MEM ", FREQ_MID
-
-                elif ipc < IPC_MIXED:
-                    state, target = "MIX ", FREQ_MID
-
+                    state = "G_IO"
+                    f_target_low, f_target_high = FREQ_MIN, FREQ_MIN
+                    
+                # Pure Beta Logic. We treat everything as "ACTIVE" unless IO stops us.
+                # If utilization is effectively zero, Beta math will naturally produce low targets,
+                # but we rely on the optimizer to figure that out rather than 'if' blocks.
                 else:
-                    # === BETA OPTIMIZATION INJECTION ===
-                    # Only calculate MIPS if we are actually working
-                    mips = (instr_delta / 1e6) / dt
-                    
-                    # Update model with current freq and measured mips
-                    curr_freq = ctl.last.get(c, FREQ_MAX)
-                    betas[c].update(curr_freq, mips)
-                    
-                    # Ask Beta for optimal frequency
-                    f_star = betas[c].get_target_freq()
-                    
-                    # SNAP LOGIC with SAFETY FLOOR
-                    # If Beta suggests anything slightly less than MAX, check if we should drop to MID.
-                    # CRITICAL: We NEVER drop below MID for Compute.
-                    if f_star >= 1800000: # If target > 1.8GHz, keep 2.0GHz
-                        target = FREQ_MAX
-                    else:
-                        target = FREQ_MID # Floor at 1.6GHz
+                    # === PURE BETA OPTIMIZATION LOGIC ===
+                    # Only update if there is *some* activity to measure
+                    if u > 1.0: 
+                        mips = (instr_delta / 1e6) / dt
                         
-                    state = f"B{betas[c].beta:.1f}" # Log Beta value
+                        # Get actual last freq to update model
+                        curr_freq = ctl.last.get(c, FREQ_MAX)
+                        
+                        betas[c].update(curr_freq, mips)
+                        
+                        # 1. Calculate f*
+                        f_star = betas[c].get_f_star()
+                        f_star_disp = f_star
+                        
+                        # 2. Get Neighbors and Ratio r
+                        f_j, f_next, r = betas[c].get_pwm_params(f_star)
+                        
+                        f_target_low = f_j
+                        f_target_high = f_next
+                        ratio_r = r
+                        state = f"B{betas[c].beta:.2f}"
+                    else:
+                        # If utilization is basically zero, sleep the core
+                        state = "IDLE"
+                        f_target_low, f_target_high = FREQ_MIN, FREQ_MIN
 
-                ctl.set(c, target)
+                # Calculate time to spend at f_j (Step 3c)
+                time_at_low = ratio_r * LOOP_SLEEP
+                
+                pwm_execution_map[c] = (f_target_low, f_target_high, time_at_low)
 
                 if args.heartbeat:
-                    # Formatting: [State|Util|IPC]
-                    hb.append(f"C{c}:[{state}|{int(u)}%|{ipc:.2f}]")
+                    # Format: [State | f* | r | f_low/f_high]
+                    f_star_str = f"{f_star_disp/1e6:.2f}G" if f_star_disp > 0 else "---"
+                    hb.append(f"C{c}:[{state}|T:{f_star_str}|r:{ratio_r:.2f}|{int(f_target_low/1000)}/{int(f_target_high/1000)}]")
 
             if args.heartbeat:
                 print(f"|IO:{io_mb:.1f}MB| " + " ".join(hb))
                 sys.stdout.flush()
 
+            # 3. Actuation (Emulation Loop)
+            # This blocks for LOOP_SLEEP seconds, toggling frequencies
+            emulate_pwm(ctl, pwm_execution_map, LOOP_SLEEP)
+
     except Exception as e:
         print(f"Error: {e}")
+        import traceback
+        traceback.print_exc()
     finally:
         print("\n[*] Stopping...")
         ctl.reset()

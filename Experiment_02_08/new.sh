@@ -49,7 +49,7 @@ try:
 
     # Pop the LAST available core for the monitor
     mon_core = all_cores.pop()
-    
+
     # Take the first N available cores for workers
     worker_cores = all_cores[:needed]
 
@@ -88,12 +88,12 @@ stop_energy_monitor() {
 # ================= BENCHMARK LOOP =================
 run_benchmark() {
     local mode=$1
-    
+
     reset_all_cores
 
     # 1. PARSE ACTUAL AVAILABLE CORES
     local ALLOC_STR=$(get_exact_core_list $MPI_RANKS)
-    if [[ $ALLOC_STR == "ERROR"* ]]; then 
+    if [[ $ALLOC_STR == "ERROR"* ]]; then
         echo "Not enough cores available!" >&2
         exit 1
     fi
@@ -112,8 +112,37 @@ run_benchmark() {
         ((rank++))
     done
 
+    
+
     # ================= BASELINE LOGIC =================
     if [ "$mode" == "BASELINE" ]; then
+        # =======================================================
+        #  OPTIMIZATION: FORCE MPI TO YIELD (SLEEP) WHEN WAITING
+        # =======================================================
+        # 1. Tell OpenMPI to yield the processor when idle
+        export OMPI_MCA_mpi_yield_when_idle=0
+        
+        # 2. Adjust the pause count to yield sooner (optional but recommended)
+        export OMPI_MCA_opal_progress_yield_when_idle=0
+
+        # 3. If you use OpenMP threads inside MPI ranks:
+        export OMP_WAIT_POLICY=ACTIVE
+        export OMP_PROC_BIND=false
+
+        # # ---------------------------------------------------------
+        # # 2. FORCE HARDWARE AWAKE (THE HEATER TRICK)
+        # # ---------------------------------------------------------
+        # # We launch a low-priority infinite loop on every worker core.
+        # # It only runs when miniMD pauses for I/O, forcing the CPU 
+        # # to stay at 100% Util / 2.0 GHz instead of sleeping.
+        # HEATER_PIDS=""
+        # IFS=',' read -ra CORES <<< "$WORKER_CORES_CSV"
+        # for core in "${CORES[@]}"; do
+        #     # nice -n 19 means "lowest priority" -> won't slow down miniMD
+        #     taskset -c $core nice -n 19 python3 -c 'while True: pass' > /dev/null 2>&1 & 
+        #     HEATER_PIDS="$HEATER_PIDS $!"
+        # done
+        
         start_energy_monitor
         local start_t=$(date +%s.%N)
 
@@ -129,13 +158,40 @@ run_benchmark() {
 
     # ================= MONITORED LOGIC =================
     elif [ "$mode" == "MONITORED" ]; then
+        # =======================================================
+        #  OPTIMIZATION: FORCE MPI TO YIELD (SLEEP) WHEN WAITING
+        # =======================================================
+        # 1. Tell OpenMPI to yield the processor when idle
+        export OMPI_MCA_mpi_yield_when_idle=1
+        
+        # 2. Adjust the pause count to yield sooner (optional but recommended)
+        export OMPI_MCA_opal_progress_yield_when_idle=1
+
+        # 3. If you use OpenMP threads inside MPI ranks:
+        export OMP_WAIT_POLICY=PASSIVE
+        export OMP_PROC_BIND=false
+
+        #  # ---------------------------------------------------------
+        # # 2. FORCE HARDWARE AWAKE (THE HEATER TRICK)
+        # # ---------------------------------------------------------
+        # # We launch a low-priority infinite loop on every worker core.
+        # # It only runs when miniMD pauses for I/O, forcing the CPU 
+        # # to stay at 100% Util / 2.0 GHz instead of sleeping.
+        # HEATER_PIDS=""
+        # IFS=',' read -ra CORES <<< "$WORKER_CORES_CSV"
+        # for core in "${CORES[@]}"; do
+        #     # nice -n 19 means "lowest priority" -> won't slow down miniMD
+        #     taskset -c $core nice -n 19 python3 -c 'while True: pass' > /dev/null 2>&1 & 
+        #     HEATER_PIDS="$HEATER_PIDS $!"
+        # done
+
         # 1. Start Monitor on the explicit MONITOR_CORE
         #    Pass the CSV list of workers so Python knows exactly who to watch
         taskset -c $MONITOR_CORE python3 -u $PYTHON_SCRIPT --heartbeat --cores "$WORKER_CORES_CSV" > monitor_output.log 2>&1 &
         MON_PID=$!
 
         sleep 4
-        
+
         start_energy_monitor
         local start_t=$(date +%s.%N)
 
