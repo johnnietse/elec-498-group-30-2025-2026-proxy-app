@@ -9,15 +9,15 @@ export OMP_PLACES=cores
 NUM_RUNS=5                    
 IDLE_MEASURE_TIME=10          # Seconds to measure background leakage
 
-ENERGY_FILE="/sys/class/powercap/intel-rapl:0:0/energy_uj"
-MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0:0/max_energy_range_uj)
+ENERGY_FILE="/sys/class/powercap/intel-rapl:0/energy_uj"
+MAX_RANGE= "/sys/class/powercap/intel-rapl:0/max_energy_range_uj"
 CSV_FILE="${NUM_CORES}_core_scaling_results.csv"
 LOG_FILE="log_${NUM_CORES}_cores.out"
 
 # Initialize CSV with a header
 echo "Run,Time_Sec_${NUM_CORES},Total_J_${NUM_CORES},Dynamic_J_${NUM_CORES}, Avg_Power_W__${NUM_CORES}" > "$CSV_FILE"
 
-ample_energy() {
+sample_energy() {
     local RUN_ID=$1
     local ACCUMULATED_UJ=0
     local PREV=$(cat "$ENERGY_FILE")
@@ -38,6 +38,18 @@ ample_energy() {
     done
 }
 
+start_energy_monitor() {
+    cat "$ENERGY_FILE" > start_snapshot.tmp 2>/dev/null || echo "0" > start_snapshot.tmp
+}
+
+stop_energy_monitor() {
+    local END_VAL=$(cat "$ENERGY_FILE" 2>/dev/null || echo 0)
+    local START_VAL=$(cat start_snapshot.tmp 2>/dev/null || echo 0)
+    local MAX_VAL=$(cat "$MAX_RANGE" 2>/dev/null || echo 262143328850)
+    python3 -c "print($END_VAL - $START_VAL if ($END_VAL - $START_VAL) >= 0 else ($END_VAL - $START_VAL) + $MAX_VAL)"
+    rm -f start_snapshot.tmp
+}
+
 # Measure Idle Baseline
 # Isolates the 'leakage power' of the socket before work starts
 echo "Measuring ${IDLE_MEASURE_TIME}s idle baseline for $NUM_CORES core test..."
@@ -53,13 +65,14 @@ for (( i=1; i<=$NUM_RUNS; i++ ))
 do
     echo "Starting Run $i of $NUM_RUNS..."
     
-    RUN_ID="${NUM_CORES}_${i}"
-    touch ".running_$RUN_ID"
+    # RUN_ID="${NUM_CORES}_${i}"
+    # touch ".running_$RUN_ID"
     
-    # Start background monitor to catch counter resets during long runs
-    sample_energy "$RUN_ID" &
-    MONITOR_PID=$!
+    # # Start background monitor to catch counter resets during long runs
+    # sample_energy "$RUN_ID" &
+    # MONITOR_PID=$!
 
+    start_energy_monitor
     START_NS=$(date +%s%N)
     
     # Run miniMD with strict pinning
@@ -68,12 +81,13 @@ do
     ./miniMD_openmpi -i in.lj.miniMD >> "$LOG_FILE" 2>&1
     
     END_NS=$(date +%s%N)
+    TOTAL_UJ=$(stop_energy_monitor)
     # Stop monitor safely
-    rm ".running_$RUN_ID"
-    wait $MONITOR_PID
+    # rm ".running_$RUN_ID"
+    # wait $MONITOR_PID
 
-    TOTAL_UJ=$(cat ".energy_tmp_$RUN_ID")
-    rm ".energy_tmp_$RUN_ID"
+    # TOTAL_UJ=$(cat ".energy_tmp_$RUN_ID")
+    # rm ".energy_tmp_$RUN_ID"
     
     RUNTIME=$(echo "scale=9; ($END_NS - $START_NS) / 1000000000" | bc)
     TOTAL_J=$(echo "scale=6; $TOTAL_UJ / 1000000" | bc)
