@@ -7,77 +7,62 @@ import argparse
 import subprocess
 import signal
 import threading
-import ctypes
 import math
-from ctypes import c_int, c_uint16, c_uint32, c_uint64, c_longlong
+import fcntl
 
 # ================= CONFIGURATION =================
 APP_NAME = "miniMD"
-LOOP_SLEEP = 0.5    # The "I" interval from the paper
-PWM_RESOLUTION = 0.01 # Check for frequency switches every 10ms
+LOOP_SLEEP = 0.5         # interval length (I)
+PWM_RESOLUTION = 0.01    # duty-cycle resolution
+
+# perf binary (can override via PERF_BIN env var)
+PERF_BIN = os.environ.get("PERF_BIN", "perf")
 
 # Available Discrete Frequencies (Sorted)
-FREQ_AVAIL = [1200000, 1600000, 2000000] 
-
-# Explicit Definitions for Logic
+FREQ_AVAIL = [1200000, 1600000, 2000000]
 FREQ_MIN = 1200000
 FREQ_MID = 1600000
 FREQ_MAX = 2000000
 
 # Thresholds
-GLOBAL_IO_THRESHOLD_MB = 15.0 
-UTIL_IDLE_THRESHOLD = 10.0     
-IPC_MEM_BOUND = 0.8            
-IPC_MIXED = 1.0                
+GLOBAL_IO_THRESHOLD_MB = 15.0
+UTIL_IDLE_THRESHOLD = 10.0
+IPC_MEM_BOUND = 0.8
+IPC_MIXED = 1.0
 
 # Beta Config
-SLOWDOWN_LIMIT = 0.05  # 'delta' in the paper (5%)
-
-# ================= LOW LEVEL PERF =================
-PERF_TYPE_HARDWARE = 0
-PERF_COUNT_HW_CPU_CYCLES = 0
-PERF_COUNT_HW_INSTRUCTIONS = 1
-__NR_perf_event_open = 298
-
-class PerfEventAttr(ctypes.Structure):
-    _fields_ = [("type", c_uint32), ("size", c_uint32), ("config", c_uint64),
-                ("sample_period", c_uint64), ("sample_type", c_uint64), ("read_format", c_uint64),
-                ("flags", c_uint64), ("wakeup_events", c_uint32), ("bp_type", c_uint32),
-                ("bp_addr", c_uint64), ("bp_len", c_uint64), ("branch_sample_type", c_uint64),
-                ("sample_regs_user", c_uint64), ("sample_stack_user", c_uint32),
-                ("clockid", c_int), ("sample_regs_intr", c_uint64),
-                ("aux_watermark", c_uint32), ("sample_max_stack", c_uint16), ("reserved2", c_uint16)]
-
-libc = ctypes.CDLL(None)
-
-def perf_event_open(attr, pid, cpu, group_fd, flags):
-    attr.size = ctypes.sizeof(attr)
-    return libc.syscall(__NR_perf_event_open, ctypes.byref(attr), c_int(pid), c_int(cpu), c_int(group_fd), c_longlong(flags))
+SLOWDOWN_LIMIT = 0.05  # delta in paper (5%)
 
 # ================= HARDWARE MONITORS =================
 class CoreUtilMonitor:
     def __init__(self, cores):
         self.cores = set(cores)
         self.prev = {}
-        try: self.f = open("/proc/stat", "r")
-        except: pass
+        try:
+            self.f = open("/proc/stat", "r")
+        except Exception:
+            self.f = None
 
     def sample(self):
-        if not hasattr(self, 'f'): return {}
+        if self.f is None:
+            return {}
         self.f.seek(0)
         res = {}
         for line in self.f:
-            if not line.startswith("cpu"): continue
+            if not line.startswith("cpu"):
+                continue
             parts = line.split()
-            if len(parts[0]) == 3: continue 
+            if len(parts[0]) == 3:  # "cpu" aggregate
+                continue
             c = int(parts[0][3:])
-            if c not in self.cores: continue
+            if c not in self.cores:
+                continue
             idle = int(parts[4]) + int(parts[5])
             total = sum(int(x) for x in parts[1:])
             if c in self.prev:
                 dt = total - self.prev[c][0]
                 di = idle - self.prev[c][1]
-                res[c] = (1.0 - (di/dt))*100.0 if dt > 0 else 0.0
+                res[c] = (1.0 - (di / dt)) * 100.0 if dt > 0 else 0.0
             self.prev[c] = (total, idle)
         return res
 
@@ -87,19 +72,24 @@ class IODetector:
         self.last_wchar = {}
 
     def get_write_mb(self, pids, dt):
-        if dt <= 0: return 0.0
+        if dt <= 0:
+            return 0.0
         for pid in pids:
             if pid not in self.handles:
-                try: self.handles[pid] = open(f"/proc/{pid}/io", "r")
-                except: pass
-        
+                try:
+                    self.handles[pid] = open(f"/proc/{pid}/io", "r")
+                except Exception:
+                    pass
+
         total_delta = 0
         for pid in list(self.handles.keys()):
             if pid not in pids:
-                try: self.handles[pid].close()
-                except: pass
-                del self.handles[pid]
-                if pid in self.last_wchar: del self.last_wchar[pid]
+                try:
+                    self.handles[pid].close()
+                except Exception:
+                    pass
+                self.handles.pop(pid, None)
+                self.last_wchar.pop(pid, None)
                 continue
             try:
                 f = self.handles[pid]
@@ -109,50 +99,171 @@ class IODetector:
                         val = int(line.split()[1])
                         if pid in self.last_wchar:
                             delta = val - self.last_wchar[pid]
-                            if delta > 0: total_delta += delta
+                            if delta > 0:
+                                total_delta += delta
                         self.last_wchar[pid] = val
                         break
-            except: pass
+            except Exception:
+                pass
+
         return (total_delta / 1024 / 1024) / dt
 
-# ================= IPC MONITOR =================
+# ================= IPC MONITOR (perf stat -p) =================
 class ProcessIPC:
-    def __init__(self, pid):
-        self.pid = pid
-        self.fd_instr = self._open(PERF_COUNT_HW_INSTRUCTIONS)
-        self.fd_cycles = self._open(PERF_COUNT_HW_CPU_CYCLES)
-        self.prev_i = 0
-        self.prev_c = 0
-        self.valid = (self.fd_instr > 0 and self.fd_cycles > 0)
+    """
+    Uses: perf stat -I 500 -e cycles:u,instructions:u,cache-misses:u -p <pid> -x ,
+    Parses interval lines to get per-interval deltas.
 
-    def _open(self, cfg):
-        attr = PerfEventAttr()
-        attr.type = PERF_TYPE_HARDWARE
-        attr.config = cfg
-        attr.flags = (1 << 0) | (1 << 5) | (1 << 6)
-        fd = perf_event_open(attr, self.pid, -1, -1, 0)
-        if fd > 0: libc.ioctl(fd, 0x2400, 0)
-        return fd
+    Notes:
+      - perf stat writes stats to stderr by default; we read stderr.
+      - We set O_NONBLOCK and drain each loop.
+      - We compute per-interval (di, dc) from perf's per-interval counts.
+    """
+    def __init__(self, pid, interval_ms=500):
+        self.pid = int(pid)
+        self.interval_ms = int(interval_ms)
+        self.process = None
+        self.valid = False
 
-    def _read(self, fd):
-        if fd < 0: return 0
-        try: return struct.unpack('q', os.read(fd, 8))[0]
-        except: return 0
+        # latest interval deltas
+        self._last_instr = 0.0
+        self._last_cycles = 0.0
+        self._last_misses = 0.0
+        self._have_cycles = False
+        self._have_instr = False
+
+        self._start()
+
+    def _start(self):
+        # -I prints every interval; -x , makes CSV-ish output
+        cmd = [
+            PERF_BIN, "stat",
+            "-I", str(self.interval_ms),
+            "-e", "cycles:u,instructions:u,cache-misses:u",
+            "-p", str(self.pid),
+            "-x", ","
+        ]
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stderr=subprocess.PIPE,
+                stdout=subprocess.DEVNULL,
+                text=True,
+                bufsize=1
+            )
+            fd = self.process.stderr.fileno()
+            fl = fcntl.fcntl(fd, fcntl.F_GETFL)
+            fcntl.fcntl(fd, fcntl.F_SETFL, fl | os.O_NONBLOCK)
+            self.valid = True
+        except Exception:
+            self.process = None
+            self.valid = False
+
+    def _stop(self):
+        if self.process is None:
+            return
+        try:
+            self.process.terminate()
+        except Exception:
+            pass
+        try:
+            self.process.kill()
+        except Exception:
+            pass
+        try:
+            if self.process.stderr:
+                self.process.stderr.close()
+        except Exception:
+            pass
+        self.process = None
+        self.valid = False
+
+    def _parse_perf_line(self, line):
+        """
+        perf -x , interval line often like:
+          <time_ms>,<count>,<unit>,<event>,<...>
+
+        We only need count + event.
+        Some lines can be empty, warnings, headers, or '<not counted>'.
+        """
+        if not line:
+            return
+        s = line.strip()
+        if not s or s.startswith("#"):
+            return
+
+        parts = s.split(",")
+        if len(parts) < 4:
+            return
+
+        # parts[1] = count, parts[3] = event
+        count_s = parts[1].strip()
+        event = parts[3].strip()
+
+        # ignore multiplex / missing
+        try:
+            val = float(count_s)
+        except Exception:
+            return
+
+        if event == "cycles:u":
+            self._last_cycles = val
+            self._have_cycles = True
+        elif event == "instructions:u":
+            self._last_instr = val
+            self._have_instr = True
+        elif event == "cache-misses:u":
+            self._last_misses = val
+
+    def _drain(self):
+        """
+        Drain all available stderr without blocking.
+        Keep only the most recent interval values for each event.
+        """
+        if not self.valid or self.process is None or self.process.stderr is None:
+            return
+
+        try:
+            while True:
+                line = self.process.stderr.readline()
+                if not line:
+                    break
+                self._parse_perf_line(line)
+        except Exception:
+            # Nonblocking read can raise; ignore
+            pass
+
+        # If perf died, mark invalid
+        try:
+            if self.process.poll() is not None:
+                self.valid = False
+        except Exception:
+            self.valid = False
 
     def get_metrics(self):
-        curr_i = self._read(self.fd_instr)
-        curr_c = self._read(self.fd_cycles)
-        di = curr_i - self.prev_i
-        dc = curr_c - self.prev_c
-        self.prev_i = curr_i
-        self.prev_c = curr_c
-        
+        """
+        Returns: (ipc, di)
+          ipc = instructions/cycles for most recent interval observed by perf
+          di  = instructions in that interval (used for MIPS calc)
+        """
+        if not self.valid:
+            return 0.0, 0
+
+        self._drain()
+
+        # If we haven't seen both events yet, return zeros
+        if not (self._have_cycles and self._have_instr):
+            return 0.0, 0
+
+        di = self._last_instr
+        dc = self._last_cycles
         ipc = (di / dc) if dc > 0 else 0.0
-        return ipc, di
+
+        # cast to int for downstream compatibility (was int delta before)
+        return float(ipc), int(di)
 
     def close(self):
-        if self.fd_instr > 0: os.close(self.fd_instr)
-        if self.fd_cycles > 0: os.close(self.fd_cycles)
+        self._stop()
 
 # ================= BETA OPTIMIZER =================
 class BetaOptimizer:
@@ -160,149 +271,145 @@ class BetaOptimizer:
         self.mips_table = {f: 0.0 for f in FREQ_AVAIL}
         self.beta = 1.0
 
-    def update(self, current_freq, mips):
-        if current_freq not in self.mips_table or mips <= 0: return
-        self.mips_table[current_freq] = mips
-        
-        # Calculate Beta using MAX and MID (standard approach)
+    def update_clean_sample(self, freq, mips):
+        """Update table only when the *entire interval* ran at a single freq."""
+        if freq not in self.mips_table or mips <= 0:
+            return
+        self.mips_table[freq] = mips
+
         mips_max = self.mips_table[FREQ_MAX]
-        # Find the next available frequency below max for beta calc
-        f_next = FREQ_AVAIL[-2] 
-        mips_next = self.mips_table[f_next]
+        mips_mid = self.mips_table[FREQ_MID]
 
-        if mips_max == 0 or mips_next == 0: return
+        if mips_max > 0 and mips_mid > 0:
+            # Power law: mips ∝ f^beta  => beta = ln(mips_max/mips_mid)/ln(f_max/f_mid)
+            denom = math.log(FREQ_MAX / FREQ_MID)
+            if abs(denom) > 1e-12:
+                b = math.log(mips_max / mips_mid) / denom
+                self.beta = max(0.01, min(2.0, b))
 
-        # Beta = ( (f_max/f_next) - 1 ) / ( (mips_max/mips_next) - 1 )
-        x = (FREQ_MAX / f_next) - 1.0
-        y = (mips_max / mips_next) - 1.0
-        
-        if abs(x) > 1e-9:
-            self.beta = y / x
-        else:
-            self.beta = 1.0
-        
-        self.beta = max(0.01, min(2.0, self.beta))
+    def ready(self):
+        return (self.mips_table[FREQ_MAX] > 0 and self.mips_table[FREQ_MID] > 0)
 
     def get_f_star(self):
-        # Calculate optimal frequency f*
-        # f* = f_max / (1 + delta / beta)
         delta = SLOWDOWN_LIMIT
-        f_star = FREQ_MAX / (1.0 + delta / self.beta)
-        return f_star
+        return FREQ_MAX / (1.0 + delta / self.beta)
 
     def get_pwm_params(self, f_star):
-        # Step 3(a): Figure out fj and fj+1
-        # fj <= f* < fj+1
-        
-        # Clamp f_star within hardware limits
         f_star = max(FREQ_AVAIL[0], min(FREQ_AVAIL[-1], f_star))
 
-        # Find neighbors
         f_j = FREQ_AVAIL[0]
         f_next = FREQ_AVAIL[-1]
-        
         for i in range(len(FREQ_AVAIL) - 1):
-            if FREQ_AVAIL[i] <= f_star <= FREQ_AVAIL[i+1]:
+            if FREQ_AVAIL[i] <= f_star <= FREQ_AVAIL[i + 1]:
                 f_j = FREQ_AVAIL[i]
-                f_next = FREQ_AVAIL[i+1]
+                f_next = FREQ_AVAIL[i + 1]
                 break
-        
-        # Edge case: exact match
+
         if f_j == f_next:
             return f_j, f_next, 1.0
 
-        # Step 3(b): Compute ratio r
-        # Formula: r = [ (1 + delta/beta)/f_max - 1/f_next ] / [ 1/fj - 1/f_next ]
-        
         delta = SLOWDOWN_LIMIT
         term_target = (1.0 + delta / self.beta) / FREQ_MAX
         term_next = 1.0 / f_next
         term_j = 1.0 / f_j
-        
+
         numerator = term_target - term_next
         denominator = term_j - term_next
-        
         if abs(denominator) < 1e-12:
-            r = 1.0 # Should not happen given distinct neighbors
+            r = 1.0
         else:
             r = numerator / denominator
-            
-        # Clamp r [0, 1]
+
         r = max(0.0, min(1.0, r))
-        
         return f_j, f_next, r
 
 # ================= CONTROLLER =================
 class Controller:
     def __init__(self, cores):
         self.handles = {}
-        self.last = {} # Cache last written freq
+        self.last = {}
         for c in cores:
             try:
                 with open(f"/sys/devices/system/cpu/cpu{c}/cpufreq/scaling_governor", 'w') as f:
                     f.write("userspace")
                 self.handles[c] = open(f"/sys/devices/system/cpu/cpu{c}/cpufreq/scaling_setspeed", 'w')
-                self.last[c] = 0
-            except: pass
+                self.last[c] = None
+            except Exception:
+                pass
 
     def set(self, core, freq):
-        # Optimization: Only write if value changed
         if core in self.handles and self.last.get(core) != freq:
             try:
                 self.handles[core].seek(0)
                 self.handles[core].write(str(int(freq)))
                 self.handles[core].flush()
                 self.last[core] = freq
-            except: pass
+            except Exception:
+                pass
 
     def reset(self):
-        for c in self.handles: self.set(c, FREQ_MAX)
+        for c in self.handles:
+            self.set(c, FREQ_MAX)
+
     def close(self):
-        for h in self.handles.values(): h.close()
+        for h in self.handles.values():
+            try:
+                h.close()
+            except Exception:
+                pass
 
 # ================= MAIN =================
 stop_event = threading.Event()
-def signal_handler(signum, frame): stop_event.set()
+def signal_handler(signum, frame):
+    stop_event.set()
+
 signal.signal(signal.SIGINT, signal_handler)
 signal.signal(signal.SIGTERM, signal_handler)
 
 def scan_pids(app_name, cores):
+    """
+    Returns mapping core->pid by reading /proc/<pid>/stat 'processor' field (index 38).
+    """
+    cores_set = set(cores)
     pmap = {}
     try:
         cmd = ["pgrep", "-u", os.environ.get("USER"), "-f", app_name]
-        pids = [int(x) for x in subprocess.check_output(cmd, text=True).split()]
+        out = subprocess.check_output(cmd, text=True).strip()
+        if not out:
+            return {}
+        pids = [int(x) for x in out.split()]
         for pid in pids:
             try:
                 with open(f"/proc/{pid}/stat", 'r') as f:
-                    c = int(f.read().split()[38])
-                    if c in cores: pmap[c] = pid
-            except: pass
-    except: pass
+                    parts = f.read().split()
+                    if len(parts) > 38:
+                        c = int(parts[38])
+                        if c in cores_set:
+                            pmap[c] = pid
+            except Exception:
+                pass
+    except Exception:
+        pass
     return pmap
 
 def emulate_pwm(ctl, pwm_map, duration):
     """
-    Simultaneously emulates duty cycles for all cores.
     pwm_map: { core_id: (freq_low, freq_high, time_at_low) }
     """
     start = time.time()
     while True:
         now = time.time()
         elapsed = now - start
-        
         if elapsed >= duration:
             break
-            
-        for c, (f_j, f_next, t_low) in pwm_map.items():
-            # Step 3(c): Run r*I seconds at f_j
-            # Step 3(d): Run (1-r)*I seconds at f_j+1
-            
+
+        for c, (f_low, f_high, t_low) in pwm_map.items():
             if elapsed < t_low:
-                ctl.set(c, f_j)
+                ctl.set(c, f_low)
             else:
-                ctl.set(c, f_next)
-                
-        time.sleep(PWM_RESOLUTION) # Small sleep to yield CPU
+                ctl.set(c, f_high)
+
+        time.sleep(PWM_RESOLUTION)
 
 def main():
     parser = argparse.ArgumentParser()
@@ -314,126 +421,177 @@ def main():
     for part in args.cores.split(','):
         if '-' in part:
             s, e = map(int, part.split('-'))
-            cores.extend(range(s, e+1))
-        else: cores.append(int(part))
-    cores.sort()
+            cores.extend(range(s, e + 1))
+        else:
+            cores.append(int(part))
+    cores = sorted(set(cores))
 
     print(f"[*] Beta-Integrated PWM Emulator Started. Cores: {cores}")
+    print(f"[*] Using perf binary: {PERF_BIN}")
 
     ctl = Controller(cores)
     io_det = IODetector()
     util = CoreUtilMonitor(cores)
-    ipc_mons = {} 
+
+    ipc_mons = {}              # core -> ProcessIPC
     betas = {c: BetaOptimizer() for c in cores}
-    
-    pmap = scan_pids(APP_NAME, cores)
-    for c, pid in pmap.items():
-        ipc_mons[c] = ProcessIPC(pid)
+
+    # prev_plan is what was actually applied during the *previous* interval
+    # core -> (f_low, f_high, r, t_low)
+    prev_plan = {c: (FREQ_MAX, FREQ_MAX, 1.0, LOOP_SLEEP) for c in cores}
+
+    # calibration state per core:
+    # 0 = need MAX sample, 1 = need MID sample, 2 = ready for beta PWM
+    cal_state = {c: 0 for c in cores}
 
     # Prime monitors
-    util.sample() 
+    util.sample()
     last_loop_time = time.time()
 
     try:
         while not stop_event.is_set():
-            # NOTE: We do NOT use time.sleep(LOOP_SLEEP) here.
-            # We use the emulate_pwm function at the end of the loop.
-            
             now = time.time()
             dt = now - last_loop_time
             last_loop_time = now
-            if dt <= 0: dt = 0.001
+            if dt <= 0:
+                dt = 0.001
 
-            # Refresh PIDs
-            if len(ipc_mons) < len(cores):
-                pmap = scan_pids(APP_NAME, cores)
-                for c, pid in pmap.items():
-                    if c not in ipc_mons: ipc_mons[c] = ProcessIPC(pid)
+            # Refresh PID map every loop (robust)
+            pmap = scan_pids(APP_NAME, cores)
 
-            # 1. Gather Metrics
+            # Keep monitors aligned with current pids; close/remove stale ones
+            for c in list(ipc_mons.keys()):
+                if c not in pmap:
+                    ipc_mons[c].close()
+                    del ipc_mons[c]
+                else:
+                    # If PID changed on same core, replace monitor
+                    if ipc_mons[c].pid != pmap[c]:
+                        ipc_mons[c].close()
+                        ipc_mons[c] = ProcessIPC(pmap[c], interval_ms=int(LOOP_SLEEP * 1000))
+
+            # Add new monitors
+            for c, pid in pmap.items():
+                if c not in ipc_mons:
+                    ipc_mons[c] = ProcessIPC(pid, interval_ms=int(LOOP_SLEEP * 1000))
+
+            # Gather global metrics
             curr_pids = list(pmap.values())
             io_mb = io_det.get_write_mb(curr_pids, dt)
             u_data = util.sample()
-
-            # 2. Decision & PWM Calculation
-            hb = []
             io_override = (io_mb > GLOBAL_IO_THRESHOLD_MB)
-            
-            # Map for the PWM Emulator: {core: (f_low, f_high, time_at_low)}
-            pwm_execution_map = {}
 
+            # Per-core: read IPC + Δinstr and update beta using PREVIOUS plan (correct labeling)
+            # NOTE: update beta only on clean intervals (prev f_low==f_high)
+            per_core = {}
             for c in cores:
-                u = u_data.get(c, 0)
+                u = u_data.get(c, 0.0)
                 ipc = 0.0
                 instr_delta = 0
 
-                if c in ipc_mons:
-                    if ipc_mons[c].valid:
-                        ipc, instr_delta = ipc_mons[c].get_metrics()
-                    else:
-                        del ipc_mons[c]
+                if c in ipc_mons and ipc_mons[c].valid:
+                    ipc, instr_delta = ipc_mons[c].get_metrics()
 
-                # Default Logic
-                f_target_low = FREQ_MIN
-                f_target_high = FREQ_MIN
-                ratio_r = 1.0 # 100% at low
+                # update beta using the plan that produced this interval's instr_delta
+                f_prev_low, f_prev_high, r_prev, t_prev_low = prev_plan[c]
+                mips = ((instr_delta / 1e6) / dt) if (dt > 0 and instr_delta > 0) else 0.0
+
+                if f_prev_low == f_prev_high and mips > 0:
+                    betas[c].update_clean_sample(f_prev_low, mips)
+
+                # Advance calibration state when samples exist
+                if cal_state[c] == 0 and betas[c].mips_table[FREQ_MAX] > 0:
+                    cal_state[c] = 1
+                if cal_state[c] == 1 and betas[c].mips_table[FREQ_MID] > 0:
+                    cal_state[c] = 2
+
+                per_core[c] = {
+                    "u": u,
+                    "ipc": ipc,
+                    "di": instr_delta,
+                    "mips": mips
+                }
+
+            # Decide next interval's PWM plan
+            pwm_execution_map = {}
+            hb = []
+
+            for c in cores:
+                u = per_core[c]["u"]
+                ipc = per_core[c]["ipc"]
+                instr_delta = per_core[c]["di"]
+                mips = per_core[c]["mips"]
+
+                # defaults
+                f_low = FREQ_MIN
+                f_high = FREQ_MIN
+                r = 1.0
                 state = "INIT"
-                f_star_disp = 0
+                f_star_disp = 0.0
 
+                # global overrides first
                 if io_override:
                     state = "G_IO"
-                    f_target_low, f_target_high = FREQ_MIN, FREQ_MIN
-                elif u < UTIL_IDLE_THRESHOLD:
-                    state = "IDLE"
-                    f_target_low, f_target_high = FREQ_MIN, FREQ_MIN
-                elif u <= 1:
-                    state = "INAC"
-                    f_target_low, f_target_high = FREQ_MIN, FREQ_MIN
-                elif ipc < IPC_MEM_BOUND:
-                    state = "MEM "
-                    f_target_low, f_target_high = FREQ_MID, FREQ_MID
-                elif ipc < IPC_MIXED:
-                    state = "MIX "
-                    f_target_low, f_target_high = FREQ_MID, FREQ_MID
-                else:
-                    # === BETA OPTIMIZATION LOGIC ===
-                    mips = (instr_delta / 1e6) / dt
-                    
-                    # Get actual last freq to update model
-                    # (Approximation: use cached last write)
-                    curr_freq = ctl.last.get(c, FREQ_MAX)
-                    
-                    betas[c].update(curr_freq, mips)
-                    
-                    # 1. Calculate f*
-                    f_star = betas[c].get_f_star()
-                    f_star_disp = f_star
-                    
-                    # 2. Get Neighbors and Ratio r
-                    # fj (low), f_next (high), r (ratio for low)
-                    f_j, f_next, r = betas[c].get_pwm_params(f_star)
-                    
-                    f_target_low = f_j
-                    f_target_high = f_next
-                    ratio_r = r
-                    state = f"B{betas[c].beta:.2f}"
+                    f_low = f_high = FREQ_MIN
+                    r = 1.0
 
-                # Calculate time to spend at f_j (Step 3c)
-                time_at_low = ratio_r * LOOP_SLEEP
-                
-                pwm_execution_map[c] = (f_target_low, f_target_high, time_at_low)
+                elif u < UTIL_IDLE_THRESHOLD or u <= 1:
+                    state = "IDLE"
+                    f_low = f_high = FREQ_MIN
+                    r = 1.0
+
+                elif ipc < IPC_MEM_BOUND:
+                    state = "MEM"
+                    f_low = f_high = FREQ_MID
+                    r = 1.0
+
+                elif ipc < IPC_MIXED:
+                    state = "MIX"
+                    f_low = f_high = FREQ_MID
+                    r = 1.0
+
+                else:
+                    # === CALIBRATION FIRST ===
+                    if cal_state[c] == 0:
+                        state = "CAL_MAX"
+                        f_low = f_high = FREQ_MAX
+                        r = 1.0
+                    elif cal_state[c] == 1:
+                        state = "CAL_MID"
+                        f_low = f_high = FREQ_MID
+                        r = 1.0
+                    else:
+                        # === BETA OPTIMIZATION ===
+                        f_star = betas[c].get_f_star()
+                        f_star_disp = f_star
+                        f_j, f_next, r_calc = betas[c].get_pwm_params(f_star)
+                        f_low, f_high, r = f_j, f_next, r_calc
+                        state = f"B{betas[c].beta:.2f}"
+
+                t_low = r * LOOP_SLEEP
+                pwm_execution_map[c] = (f_low, f_high, t_low)
+
+                # record the plan we are about to apply (used next loop to label deltas)
+                prev_plan[c] = (f_low, f_high, r, t_low)
 
                 if args.heartbeat:
-                    # Format: [State | f* | r | f_low/f_high]
                     f_star_str = f"{f_star_disp/1e6:.2f}G" if f_star_disp > 0 else "---"
-                    hb.append(f"C{c}:[{state}|T:{f_star_str}|r:{ratio_r:.2f}|{int(f_target_low/1000)}/{int(f_target_high/1000)}]")
+                    hb.append(
+                        f"C{c}:[{state}"
+                        f"|U:{u:4.0f}%"
+                        f"|IPC:{ipc:4.2f}"
+                        f"|dI:{instr_delta}"
+                        f"|M:{mips:6.1f}"
+                        f"|T:{f_star_str}"
+                        f"|r:{r:4.2f}"
+                        f"|{int(f_low/1000)}/{int(f_high/1000)}]"
+                    )
 
             if args.heartbeat:
-                print(f"|IO:{io_mb:.1f}MB| " + " ".join(hb))
+                print(f"|dt:{dt:.3f}s|IO:{io_mb:.1f}MB| " + " ".join(hb))
                 sys.stdout.flush()
 
-            # 3. Actuation (Emulation Loop)
-            # This blocks for LOOP_SLEEP seconds, toggling frequencies
+            # Actuate for one full interval
             emulate_pwm(ctl, pwm_execution_map, LOOP_SLEEP)
 
     except Exception as e:
@@ -442,9 +600,16 @@ def main():
         traceback.print_exc()
     finally:
         print("\n[*] Stopping...")
-        ctl.reset()
-        ctl.close()
-        for m in ipc_mons.values(): m.close()
+        try:
+            ctl.reset()
+            ctl.close()
+        except Exception:
+            pass
+        for m in ipc_mons.values():
+            try:
+                m.close()
+            except Exception:
+                pass
 
 if __name__ == "__main__":
     main()

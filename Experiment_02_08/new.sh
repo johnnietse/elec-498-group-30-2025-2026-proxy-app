@@ -129,19 +129,19 @@ run_benchmark() {
         export OMP_WAIT_POLICY=ACTIVE
         export OMP_PROC_BIND=false
 
-        # # ---------------------------------------------------------
-        # # 2. FORCE HARDWARE AWAKE (THE HEATER TRICK)
-        # # ---------------------------------------------------------
-        # # We launch a low-priority infinite loop on every worker core.
-        # # It only runs when miniMD pauses for I/O, forcing the CPU 
-        # # to stay at 100% Util / 2.0 GHz instead of sleeping.
-        # HEATER_PIDS=""
-        # IFS=',' read -ra CORES <<< "$WORKER_CORES_CSV"
-        # for core in "${CORES[@]}"; do
-        #     # nice -n 19 means "lowest priority" -> won't slow down miniMD
-        #     taskset -c $core nice -n 19 python3 -c 'while True: pass' > /dev/null 2>&1 & 
-        #     HEATER_PIDS="$HEATER_PIDS $!"
-        # done
+        # ---------------------------------------------------------
+        # 2. FORCE HARDWARE AWAKE (THE HEATER TRICK)
+        # ---------------------------------------------------------
+        # We launch a low-priority infinite loop on every worker core.
+        # It only runs when miniMD pauses for I/O, forcing the CPU 
+        # to stay at 100% Util / 2.0 GHz instead of sleeping.
+        HEATER_PIDS=""
+        IFS=',' read -ra CORES <<< "$WORKER_CORES_CSV"
+        for core in "${CORES[@]}"; do
+            # nice -n 19 means "lowest priority" -> won't slow down miniMD
+            taskset -c $core nice -n 19 python3 -c 'while True: pass' > /dev/null 2>&1 & 
+            HEATER_PIDS="$HEATER_PIDS $!"
+        done
         
         start_energy_monitor
         local start_t=$(date +%s.%N)
@@ -190,7 +190,8 @@ run_benchmark() {
         taskset -c $MONITOR_CORE python3 -u $PYTHON_SCRIPT --heartbeat --cores "$WORKER_CORES_CSV" > monitor_output.log 2>&1 &
         MON_PID=$!
 
-        sleep 4
+        # Wait until monitor prints readiness (warmup complete)
+        timeout 10 bash -c 'until grep -q "\[MONITOR_READY\]" monitor_output.log; do sleep 0.1; done'
 
         start_energy_monitor
         local start_t=$(date +%s.%N)
