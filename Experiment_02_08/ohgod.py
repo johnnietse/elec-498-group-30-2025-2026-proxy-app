@@ -34,7 +34,7 @@ IPC_MEM_BOUND = 0.8
 IPC_MIXED = 1.0
 
 # Beta Config
-SLOWDOWN_LIMIT = 0.05  # delta in paper (5%)
+SLOWDOWN_LIMIT = 0.04  # delta in paper (5%)
 
 # ================= HARDWARE MONITORS =================
 class CoreUtilMonitor:
