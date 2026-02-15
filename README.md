@@ -10,10 +10,10 @@ Read Me for Jhonnie
 5. cd /home/hpc6084/frnt115/minimd/ref
 
 6. link chk directory
-     echo $SLURM_TMPDIR
-     df -h /lscratch/slurm-job-2490120-1  **change the job number to whatever your job number is**
-     ln -s $SLURM_TMPDIR/chk chk
-     ls -l chk **Should show: chk -> /lscratch/slurm-job-2497329-1/chk**
+     echo $SLURM_TMPDIR   \n
+     df -h /lscratch/slurm-job-2490120-1  **change the job number to whatever your job number is** \n
+     ln -s $SLURM_TMPDIR/chk chk  \n
+     ls -l chk **Should show: chk -> /lscratch/slurm-job-2497329-1/chk**   \n
 
 7. set in.lj.miniMD to desired load.
 
@@ -21,7 +21,7 @@ Read Me for Jhonnie
      mpirun --oversubscribe -np 1   ./miniMD_openmpi   -i in.lj.miniMD
 
 9. check the directories 
-    ls -lh  /lscratch/slurm-job-2497336-1/chk
+    ls -lh  /lscratch/slurm-job-2497336-1/chk  \n
     du -sh /lscratch/slurm-job-2497336-1/chk
 
 10. remove all files for the next run.
