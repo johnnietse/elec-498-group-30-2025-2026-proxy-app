@@ -446,8 +446,8 @@ void Integrate::run(Atom &atom, Force* force, Neighbor &neighbor,
     std::printf("========================================\n");
   }
   
-  // Calculate checkpoint step (use middle of requested timesteps)
-  int checkpoint_step = ntimes / 2;
+  // Use step 0 since we're checkpointing initial state (not mid-simulation)
+  int checkpoint_step = 0;
   
   // Small delay to simulate some initial work
   if(me == 0) {
