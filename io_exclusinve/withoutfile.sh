@@ -7,6 +7,7 @@
 #SBATCH --time=4:00:00
 #SBATCH --mem=8G
 #SBATCH --exclusive
+#SBATCH --constraint=lkb
 #SBATCH --cpu-freq=performance        # We'll override this manually
 #SBATCH --partition=gpu-rgrant
 #SBATCH --mail-user=19jl253@queensu.ca
