@@ -1,0 +1,3203 @@
+With this setup:
+salloc --nodes=1 --partition=gpu-rgrant --constraint=lkb   --time=1:00:00 --ntasks=32 --cpus-per-task=1 --exclusive
+
+# 0f. Set environment
+export OMP_NUM_THREADS=1
+export OMP_PROC_BIND=true
+export OMP_PLACES=cores
+
+# STEP 1: IDLE BASELINE
+
+# Trial 1:
+[hpc6081@frnt115 ref]$ for c in $(seq 0 29); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.63 W
+
+
+# Trial 2:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.62 W
+
+# Trial 3:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 647 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.75 W
+
+
+# Trial 4:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.64 W
+
+
+# Trial 5:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.69 W
+
+
+# Trial 6:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.69 W
+
+# Trial 7:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.64 W
+
+
+# Trial 8:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.64 W
+
+# Trial 9:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.63 W
+
+
+# Trial 10:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.63 W
+
+
+# Trial 11:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.64 W
+
+
+# Trial 12:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.61 W
+
+
+# Trial 13:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 647 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.71 W
+
+
+# Trial 14:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.61 W
+
+
+# Trial 15:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.63 W
+
+
+# Trial 16:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.61 W
+
+
+# Trial 17:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.62 W
+
+
+# Trial 18:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.62 W
+
+
+# Trial 19:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 645 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.57 W
+
+
+# Trial 20:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.61 W
+
+
+# Trial 21:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.63 W
+
+
+# Trial 22:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.61 W
+
+# Trial 23:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 645 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.55 W
+
+
+# Trial 24:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.62 W
+
+
+# Trial 25:
+[hpc6081@frnt115 ref]$ IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ sleep 10
+[hpc6081@frnt115 ref]$ IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+[hpc6081@frnt115 ref]$ echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+Idle energy over 10s: 646 J
+[hpc6081@frnt115 ref]$ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+Idle power: 64.68 W
+
+
+# STEP 2: TEST A — BASELINE (performance governor, comm phase OFF)
+# Purpose: Control experiment. Max frequency, no optimizations.
+# Graph: Provides the "before" bar in Energy and Time charts.
+
+#  With 1 MPI rank:
+
+# Trial 1
+[hpc6081@frnt115 ref]$ NUM_WORKERS=1
+[hpc6081@frnt115 ref]$ RUN=1
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2a. Reset governors
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~2400000 (or whatever max is)
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2b. Verify governor
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2413851
+[hpc6081@frnt115 ref]$ # Should say: ~2400000 (or whatever max is)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2c. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2d. Run miniMD — comm phase DISABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+>     2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 1
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 0
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 1 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 608.00 MB
+All checkpoint data written (608.00 MB in 0.44 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.25 seconds
+Checkpoint data written: 608.00 MB per rank
+Total written (with padding): 903.00 MB per rank
+Number of chunks: 904
+Average bandwidth: 29.85 MB/s per rank
+=====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 498.682
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+1 1 100 8388608 498.681732 390.263135 63.928418 2.762763 41.727416 1682156.666471 1682156.666471 PERF_SUMMARY 1.740421
+
+
+[hpc6081@frnt115 ref]$ # 2e. Read energy AFTER
+
+# 2f. Parse timing from log
+grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+# echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+
+# 2h. Cleanup
+sleep 2[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test A | N=1 | Run 1 | Energy: 39609.811 J
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2f. Parse timing from log
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+1 1 100 8388608 498.681732 390.263135 63.928418 2.762763 41.727416 1682156.666471 1682156.666471 PERF_SUMMARY 1.740421
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+[hpc6081@frnt115 ref]$ # echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+
+
+[hpc6081@frnt115 ref]$ # 2h. Cleanup
+[hpc6081@frnt115 ref]$ sleep 2
+
+
+
+# Trial 2
+[hpc6081@frnt115 ref]$ NUM_WORKERS=1
+[hpc6081@frnt115 ref]$ RUN=2
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2a. Reset governors
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 2f. Parse timing from log
+grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+# echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+
+# 2h. Cleanup
+sleep 2[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2b. Verify governor
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2188104
+[hpc6081@frnt115 ref]$ # Should say: ~2400000 (or whatever max is)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2c. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2d. Run miniMD — comm phase DISABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+>     2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 1
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 0
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 1 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 608.00 MB
+All checkpoint data written (608.00 MB in 0.44 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.26 seconds
+Checkpoint data written: 608.00 MB per rank
+Total written (with padding): 903.00 MB per rank
+Number of chunks: 904
+Average bandwidth: 29.84 MB/s per rank
+=====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 498.749
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+1 1 100 8388608 498.748619 390.408190 63.885150 2.720489 41.734790 1681931.073787 1681931.073787 PERF_SUMMARY 1.715956
+
+
+[hpc6081@frnt115 ref]$ # 2e. Read energy AFTER
+
+# 2f. Parse timing from log
+grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+# echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test A | N=1 | Run 2 | Energy: 45907.620 J
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2f. Parse timing from log
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+1 1 100 8388608 498.748619 390.408190 63.885150 2.720489 41.734790 1681931.073787 1681931.073787 PERF_SUMMARY 1.715956
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+[hpc6081@frnt115 ref]$ # echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+[hpc6081@frnt115 ref]$ # 2h. Cleanup
+[hpc6081@frnt115 ref]$ sleep 2
+
+
+# Trial 3
+[hpc6081@frnt115 ref]$ NUM_WORKERS=1
+[hpc6081@frnt115 ref]$ RUN=3
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2a. Reset governors
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~2400000 (or whatever max is)
+
+# 2c. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 2d. Run miniMD — comm phase DISABLED
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+    2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2e. Read energy AFTER
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+DIFF=$(( AFTER - BEFORE ))
+if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 2f. Parse timing from log
+grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+# echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+
+# 2h. Cleanup
+sleep 2> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2b. Verify governor
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2214940
+[hpc6081@frnt115 ref]$ # Should say: ~2400000 (or whatever max is)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2c. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2d. Run miniMD — comm phase DISABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+>     2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 1
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 0
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 1 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 608.00 MB
+All checkpoint data written (608.00 MB in 0.45 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.26 seconds
+Checkpoint data written: 608.00 MB per rank
+Total written (with padding): 903.00 MB per rank
+Number of chunks: 904
+Average bandwidth: 29.84 MB/s per rank
+=====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 498.697
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+1 1 100 8388608 498.697363 390.259493 63.896141 2.759273 41.782457 1682103.940275 1682103.940275 PERF_SUMMARY 1.742898
+
+[hpc6081@frnt115 ref]$ # 2e. Read energy AFTER
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test A | N=1 | Run 3 | Energy: 41897.955 J
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2f. Parse timing from log
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+1 1 100 8388608 498.697363 390.259493 63.896141 2.759273 41.782457 1682103.940275 1682103.940275 PERF_SUMMARY 1.742898
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+[hpc6081@frnt115 ref]$ # echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+
+[hpc6081@frnt115 ref]$ # 2h. Cleanup
+[hpc6081@frnt115 ref]$ sleep 2
+
+
+
+# Trial 4
+[hpc6081@frnt115 ref]$ NUM_WORKERS=1
+[hpc6081@frnt115 ref]$ RUN=4
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# 2b. Verify governor
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2a. Reset governors
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~2400000 (or whatever max is)
+
+# 2c. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 2d. Run miniMD — comm phase DISABLED
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+    2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2e. Read energy AFTER
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+DIFF=$(( AFTER - BEFORE ))
+if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 2f. Parse timing from log
+grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+# echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+
+# 2h. Cleanup
+sleep 2[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2b. Verify governor
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2624056
+[hpc6081@frnt115 ref]$ # Should say: ~2400000 (or whatever max is)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2c. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2d. Run miniMD — comm phase DISABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+>     2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 1
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 0
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 1 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 608.00 MB
+All checkpoint data written (608.00 MB in 0.44 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.26 seconds
+Checkpoint data written: 608.00 MB per rank
+Total written (with padding): 903.00 MB per rank
+Number of chunks: 904
+Average bandwidth: 29.84 MB/s per rank
+=====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 498.674
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+1 1 100 8388608 498.674376 390.291232 63.889386 2.732226 41.761532 1682181.479671 1682181.479671 PERF_SUMMARY 1.719160
+
+[hpc6081@frnt115 ref]$ # 2e. Read energy AFTER
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 2f. Parse timing from log
+grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+# echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test A | N=1 | Run 4 | Energy: 42780.254 J
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2f. Parse timing from log
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+1 1 100 8388608 498.674376 390.291232 63.889386 2.732226 41.761532 1682181.479671 1682181.479671 PERF_SUMMARY 1.719160
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+[hpc6081@frnt115 ref]$ # echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+
+[hpc6081@frnt115 ref]$ # 2h. Cleanup
+[hpc6081@frnt115 ref]$ sleep 2
+
+
+# Trial 5
+[hpc6081@frnt115 ref]$ NUM_WORKERS=1
+# 2b. Verify governor
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~2400000 (or whatever max is)
+
+# 2c. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ RUN=5
+echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 2f. Parse timing from log
+grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+# echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+
+# 2h. Cleanup
+sleep 2[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2a. Reset governors
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2b. Verify governor
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2401269
+[hpc6081@frnt115 ref]$ # Should say: ~2400000 (or whatever max is)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2c. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2d. Run miniMD — comm phase DISABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+>     2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 1
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 0
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 1 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 608.00 MB
+All checkpoint data written (608.00 MB in 0.45 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.25 seconds
+Checkpoint data written: 608.00 MB per rank
+Total written (with padding): 903.00 MB per rank
+Number of chunks: 904
+Average bandwidth: 29.85 MB/s per rank
+=====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 498.403
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+1 1 100 8388608 498.403431 390.165111 63.832163 2.690619 41.715538 1683095.955982 1683095.955982 PERF_SUMMARY 1.689746
+
+[hpc6081@frnt115 ref]$ # 2e. Read energy AFTER
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test A | N=1 | Run 5 | Energy: 40575.270 J
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2f. Parse timing from log
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+1 1 100 8388608 498.403431 390.165111 63.832163 2.690619 41.715538 1683095.955982 1683095.955982 PERF_SUMMARY 1.689746
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+[hpc6081@frnt115 ref]$ # echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+[hpc6081@frnt115 ref]$ # 2h. Cleanup
+[hpc6081@frnt115 ref]$ sleep 2
+
+
+
+
+# Trial 6
+[hpc6081@frnt115 ref]$ NUM_WORKERS=1
+# 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+# echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+
+# 2h. Cleanup
+sleep 2[hpc6081@frnt115 ref]$ RUN=6
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2a. Reset governors
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2b. Verify governor
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2055953
+[hpc6081@frnt115 ref]$ # Should say: ~2400000 (or whatever max is)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2c. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2d. Run miniMD — comm phase DISABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+>     2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 1
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 0
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 1 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 608.00 MB
+All checkpoint data written (608.00 MB in 0.45 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.26 seconds
+Checkpoint data written: 608.00 MB per rank
+Total written (with padding): 903.00 MB per rank
+Number of chunks: 904
+Average bandwidth: 29.84 MB/s per rank
+=====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 498.878
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+1 1 100 8388608 498.877743 390.523989 63.879771 2.710697 41.763285 1681495.740674 1681495.740674 PERF_SUMMARY 1.700095
+
+
+[hpc6081@frnt115 ref]$ # 2e. Read energy AFTER
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test A | N=1 | Run 6 | Energy: 2420.265 J
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2f. Parse timing from log
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+1 1 100 8388608 498.877743 390.523989 63.879771 2.710697 41.763285 1681495.740674 1681495.740674 PERF_SUMMARY 1.700095
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+[hpc6081@frnt115 ref]$ # echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2h. Cleanup
+[hpc6081@frnt115 ref]$ sleep 2
+
+
+
+# Trial 7
+
+# Trial 8
+
+# Trial 9
+
+# Trial 10
+
+# Trial 11
+
+# Trial 12
+
+# Trial 13
+
+# Trial 14
+
+# Trial 15
+
+# Trial 16
+
+# Trial 17
+
+# Trial 18
+
+# Trial 19
+
+# Trial 20
+
+# Trial 21
+
+# Trial 22
+
+# Trial 23
+
+# Trial 24
+
+# Trial 25
+
+
+
+# With 16 MPI ranks:
+# Trial 1:
+[hpc6081@frnt115 ref]$ NUM_WORKERS=16
+[hpc6081@frnt115 ref]$ RUN=1
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2a. Reset governors
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2b. Verify governor
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2267189
+[hpc6081@frnt115 ref]$ # Should say: ~2400000 (or whatever max is)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2c. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2d. Run miniMD — comm phase DISABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+>     2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 0
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.06 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.46 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 318.94 MB per rank
+Number of chunks: 319
+Average bandwidth: 10.14 MB/s per rank
+=====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 67.887
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 67.887213 29.394303 4.756335 0.796870 32.939705 12356683.477713 772292.717357 PERF_SUMMARY 0.237471
+
+
+[hpc6081@frnt115 ref]$ # 2e. Read energy AFTER
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test A | N=16 | Run 1 | Energy: 7299.031 J
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2f. Parse timing from log
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+16 1 100 8388608 67.887213 29.394303 4.756335 0.796870 32.939705 12356683.477713 772292.717357 PERF_SUMMARY 0.237471
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2g. Record to CSV (manually fill in values from PERF_SUMMARY)
+[hpc6081@frnt115 ref]$ echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_a.csv
+[hpc6081@frnt115 ref]$ # 2h. Cleanup
+[hpc6081@frnt115 ref]$ sleep 2
+[hpc6081@frnt115 ref]$
+
+
+
+[hpc6081@frnt115 ref]$ cat /tmp/test_a_16_1.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 0
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.06 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.46 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 318.94 MB per rank
+Number of chunks: 319
+Average bandwidth: 10.14 MB/s per rank
+=====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 67.887
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 67.887213 29.394303 4.756335 0.796870 32.939705 12356683.477713 772292.717357 PERF_SUMMARY 0.237471
+
+
+
+[hpc6081@frnt115 ref]$ cat results_manual_test_a.csv
+run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance
+1,16,7299.031,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>
+
+
+
+# ====================
+# STEP 3: TEST B — COMM PHASE ON, NO CONTROLLER (performance governor)
+# ====================
+# Purpose: Measures the overhead of adding the communication phase.
+# Graph: A vs B = overhead. B vs C = energy savings from controller.
+
+# MPI ranks: 16
+# Trial 1:
+
+[hpc6081@frnt115 ref]$ NUM_WORKERS=16
+[hpc6081@frnt115 ref]$ RUN=1
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 3a. Reset governors
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 3b. Clean phase marker
+[hpc6081@frnt115 ref]$ rm -f phase_marker.txt
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 3c. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 3d. Run miniMD — comm phase ENABLED (default, no --comm_phase flag)
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD \
+>     2>&1 | tee /tmp/test_b_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.06 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.46 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 322.94 MB per rank
+Number of chunks: 323
+Average bandwidth: 10.26 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.027 seconds
+Effective bandwidth: 22864.60 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 67.955
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 67.954796 29.406799 4.755119 0.817250 32.975629 12344394.298660 771524.643666 PERF_SUMMARY 0.241919
+
+
+[hpc6081@frnt115 ref]$ # 3e. Read energy AFTER (with wraparound)
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test B | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test B | N=16 | Run 1 | Energy: 12877.431 J
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 3f. Parse timing
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_b_${NUM_WORKERS}_${RUN}.log
+16 1 100 8388608 67.954796 29.406799 4.755119 0.817250 32.975629 12344394.298660 771524.643666 PERF_SUMMARY 0.241919
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 3g. Record to CSV
+[hpc6081@frnt115 ref]$ echo "$RUN,$NUM_WORKERS,$ENERGY_J,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>" >> results_manual_test_b.csv
+
+
+[hpc6081@frnt115 ref]$ cat /tmp/test_b_16_1.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.06 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.46 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 322.94 MB per rank
+Number of chunks: 323
+Average bandwidth: 10.26 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.027 seconds
+Effective bandwidth: 22864.60 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 67.955
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 67.954796 29.406799 4.755119 0.817250 32.975629 12344394.298660 771524.643666 PERF_SUMMARY 0.241919
+
+
+[hpc6081@frnt115 ref]$
+
+
+[hpc6081@frnt115 ref]$ cat results_manual_test_b.csv
+run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance
+1,16,12877.431,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>
+
+
+
+# ====================
+# STEP 4: TEST C — COMM PHASE ON + FREQUENCY CONTROLLER
+# ====================
+# Purpose: The actual optimization. Dynamic frequency scaling.
+# Graph: C vs A = total impact. C vs B = freq control savings.
+#
+# REQUIRES TWO TERMINALS (or use & to background the controller).
+
+# Rank: 16
+# Trial 1:
+[hpc6081@frnt115 ref]$ NUM_WORKERS=16
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+[hpc6081@frnt115 ref]$ RUN=1
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4a. Clean phase marker
+[hpc6081@frnt115 ref]$ rm -f phase_marker.txt
+    echo "Controller is running (PID $CTRL_PID)"
+    head -5 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+fi
+
+# 4d. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 4e. Run miniMD — comm phase ENABLED
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD \
+    2>&1 | tee /tmp/test_c_${NUM_WORKERS}_${RUN}.log[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4b. Reset governors first (controller will take over)
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4c. Start frequency controller in background on core 30
+[hpc6081@frnt115 ref]$ #     Use python3 -u for UNBUFFERED output (prevents empty log on kill)
+[hpc6081@frnt115 ref]$ #     NOTE: Can substitute comm_freq_controller.py with integrated_freq_controller.py
+[hpc6081@frnt115 ref]$ taskset -c 30 python3 -u integrated_freq_controller.py --workers $NUM_WORKERS \
+>     > /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>&1 &
+[2] 170916
+[hpc6081@frnt115 ref]$ CTRL_PID=$!
+[hpc6081@frnt115 ref]$ echo "Controller PID: $CTRL_PID"
+Controller PID: 170916
+[hpc6081@frnt115 ref]$ sleep 3  # wait for controller to initialize
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4c-verify. Confirm controller is alive and producing output
+[hpc6081@frnt115 ref]$ if ! kill -0 $CTRL_PID 2>/dev/null; then
+>     echo "ERROR: Controller crashed during startup!"
+>     echo "--- Controller log ---"
+>     cat /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+>     echo "--- End log ---"
+>     echo "Fix the issue before proceeding."
+> else
+>     echo "Controller is running (PID $CTRL_PID)"
+>     head -5 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+> fi
+Controller is running (PID 170916)
+[CTRL] Integrated Phase-Aware Frequency Controller
+[CTRL] Workers: 16 (cores 0-15)
+[CTRL] Monitor: core 30
+[CTRL] Reserved: core 31 (no permission — never touched)
+[CTRL] Rank 0 core: 0
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4d. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4e. Run miniMD — comm phase ENABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD \
+>     2>&1 | tee /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.08 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.56 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 313.94 MB per rank
+Number of chunks: 314
+Average bandwidth: 9.95 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.035 seconds
+Effective bandwidth: 17460.37 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 88.470
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 88.469619 45.471332 7.975421 1.483914 33.538952 9481908.080536 592619.255033 PERF_SUMMARY 0.354792
+
+
+[hpc6081@frnt115 ref]$ # 4f. Read energy AFTER
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test C | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test C | N=16 | Run 1 | Energy: 16392.676 J
+[hpc6081@frnt115 ref]$ # 4g. Stop controller
+[hpc6081@frnt115 ref]$ sleep 1
+[hpc6081@frnt115 ref]$ kill $CTRL_PID 2>/dev/null
+[hpc6081@frnt115 ref]$ wait $CTRL_PID 2>/dev/null || true
+[hpc6081@frnt115 ref]$ # 4h. Count phase transitions from controller log
+[hpc6081@frnt115 ref]$ TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+[hpc6081@frnt115 ref]$ echo "  Transitions: $TRANSITIONS"
+  Transitions: 0
+0
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4i. Parse timing
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+16 1 100 8388608 88.469619 45.471332 7.975421 1.483914 33.538952 9481908.080536 592619.255033 PERF_SUMMARY 0.354792
+[hpc6081@frnt115 ref]$ # 4j. CRITICAL: Reset governors back to performance
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # Verify reset worked
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2462110
+[hpc6081@frnt115 ref]$ # Should say: ~2400000
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4k. Auto-parse PERF_SUMMARY and record to CSV
+[hpc6081@frnt115 ref]$ PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log | head -1)
+[hpc6081@frnt115 ref]$ echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}'),$TRANSITIONS" >> results_manual_test_c.csv
+
+
+[hpc6081@frnt115 ref]$ cat /tmp/test_c_16_1.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.08 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.56 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 313.94 MB per rank
+Number of chunks: 314
+Average bandwidth: 9.95 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.035 seconds
+Effective bandwidth: 17460.37 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 88.470
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 88.469619 45.471332 7.975421 1.483914 33.538952 9481908.080536 592619.255033 PERF_SUMMARY 0.354792
+
+
+[hpc6081@frnt115 ref]$ cat /tmp/ctrl_c_16_1.log
+[CTRL] Integrated Phase-Aware Frequency Controller
+[CTRL] Workers: 16 (cores 0-15)
+[CTRL] Monitor: core 30
+[CTRL] Reserved: core 31 (no permission — never touched)
+[CTRL] Rank 0 core: 0
+[CTRL] Marker: phase_marker.txt
+[CTRL] Dry run: False
+[CTRL] Frequencies: [1200.0, 1600.0, 2000.0, 2400.0] MHz
+[CTRL] Beta slowdown limit: 5%
+
+[CTRL] Starting. Waiting for miniMD processes...
+
+[15:31:25] PHASE: COMPUTE -> IO (49.514s)
+  All cores: 1.2GHz (I/O-bound)
+[15:31:57] PHASE: IO -> COMMUNICATION (31.441s)
+  Core 0: 2.4GHz (networking)
+  Others: 1.2GHz (blocked/idle)
+  Data: 607.0MB
+[[15:31:57] PHASE: COMMUNICATION -> COMPUTE (0.051s)
+  All cores: 2.4GHz (beta-adaptation starting)
+[CTRL] Stopping. Total transitions: 3
+
+
+
+
+[hpc6081@frnt115 ref]$ cat results_manual_test_c.csv
+run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance,ctrl_transitions
+1,16,12600.763,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>,0
+0
+1,16,9157.421,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>,0
+0
+1,16,16392.676,88.469619,45.471332,7.975421,1.483914,33.538952,9481908.080536,0
+0
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# New Results run for MPI rank 16, trial: 1, but with comm_freq_controller.py instead of integrated_freq_controller.py:
+[hpc6081@frnt115 ref]$ NUM_WORKERS=16
+[hpc6081@frnt115 ref]$ RUN=1
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4a. Clean phase marker
+[hpc6081@frnt115 ref]$ rm -f phase_marker.txt
+# 4c. Start frequency controller in background on core 30
+#     Use python3 -u for UNBUFFERED output (prevents empty log on kill)
+#     NOTE: Can substitute comm_freq_controller.py with integrated_freq_controller.py
+taskset -c 30 python3 -u comm_freq_controller.py --workers $NUM_WORKERS \
+    > /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>&1 &
+CTRL_PID=$!
+echo "Controller PID: $CTRL_PID"
+sleep 3  # wait for controller to initialize
+
+# 4c-verify. Confirm controller is alive and producing output
+if ! kill -0 $CTRL_PID 2>/dev/null; then
+    echo "ERROR: Controller crashed during startup!"
+    echo "--- Controller log ---"
+    cat /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+    echo "--- End log ---"
+    echo "Fix the issue before proceeding."
+else
+    echo "Controller is running (PID $CTRL_PID)"
+    head -5 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+fi
+
+# 4d. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 4e. Run miniMD — comm phase ENABLED
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD \
+    2>&1 | tee /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4b. Reset governors first (controller will take over)
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4c. Start frequency controller in background on core 30
+[hpc6081@frnt115 ref]$ #     Use python3 -u for UNBUFFERED output (prevents empty log on kill)
+[hpc6081@frnt115 ref]$ #     NOTE: Can substitute comm_freq_controller.py with integrated_freq_controller.py
+[hpc6081@frnt115 ref]$ taskset -c 30 python3 -u comm_freq_controller.py --workers $NUM_WORKERS \
+>     > /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>&1 &
+[2] 175207
+[hpc6081@frnt115 ref]$ CTRL_PID=$!
+[hpc6081@frnt115 ref]$ echo "Controller PID: $CTRL_PID"
+Controller PID: 175207
+[hpc6081@frnt115 ref]$ sleep 3  # wait for controller to initialize
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4c-verify. Confirm controller is alive and producing output
+[hpc6081@frnt115 ref]$ if ! kill -0 $CTRL_PID 2>/dev/null; then
+>     echo "ERROR: Controller crashed during startup!"
+>     echo "--- Controller log ---"
+>     cat /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+>     echo "--- End log ---"
+>     echo "Fix the issue before proceeding."
+> else
+>     echo "Controller is running (PID $CTRL_PID)"
+>     head -5 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+> fi
+Controller is running (PID 175207)
+[COMM CTRL] Communication Phase Frequency Controller
+[COMM CTRL] Workers: 16 (cores 0-15)
+[COMM CTRL] Monitor: core 30
+[COMM CTRL] Reserved: core 31 (no permission)
+[COMM CTRL] Rank 0 core: 0
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4d. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4e. Run miniMD — comm phase ENABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD \
+>     2>&1 | tee /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.10 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.52 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 321.94 MB per rank
+Number of chunks: 322
+Average bandwidth: 10.21 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.028 seconds
+Effective bandwidth: 21311.34 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 88.084
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 88.083671 29.524013 4.735667 20.591053 33.232937 9523454.147850 595215.884241 PERF_SUMMARY 0.281495
+
+
+[hpc6081@frnt115 ref]$ # 4f. Read energy AFTER
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test C | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test C | N=16 | Run 1 | Energy: 12423.668 J
+[hpc6081@frnt115 ref]$ # 4g. Stop controller
+[hpc6081@frnt115 ref]$ sleep 1
+# 4h. Count phase transitions from controller log
+TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+echo "  Transitions: $TRANSITIONS"
+
+# 4i. Parse timing
+grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+
+# 4j. CRITICAL: Reset governors back to performance
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# Verify reset worked
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~2400000
+
+# 4k. Auto-parse PERF_SUMMARY and record to CSV
+PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log | head -1)
+echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}'),$TRANSITIONS" >> results_manual_test_c.csv
+[hpc6081@frnt115 ref]$ kill $CTRL_PID 2>/dev/null
+[hpc6081@frnt115 ref]$ wait $CTRL_PID 2>/dev/null || true
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4h. Count phase transitions from controller log
+[hpc6081@frnt115 ref]$ TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+[hpc6081@frnt115 ref]$ echo "  Transitions: $TRANSITIONS"
+  Transitions: 3
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4i. Parse timing
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+16 1 100 8388608 88.083671 29.524013 4.735667 20.591053 33.232937 9523454.147850 595215.884241 PERF_SUMMARY 0.281495
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4j. CRITICAL: Reset governors back to performance
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # Verify reset worked
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2193824
+[hpc6081@frnt115 ref]$ # Should say: ~2400000
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4k. Auto-parse PERF_SUMMARY and record to CSV
+[hpc6081@frnt115 ref]$ PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log | head -1)
+[hpc6081@frnt115 ref]$ echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}'),$TRANSITIONS" >> results_manual_test_c.csv
+
+
+
+
+[hpc6081@frnt115 ref]$ cat /tmp/test_c_16_1.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.10 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.52 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 321.94 MB per rank
+Number of chunks: 322
+Average bandwidth: 10.21 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.028 seconds
+Effective bandwidth: 21311.34 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 88.084
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 88.083671 29.524013 4.735667 20.591053 33.232937 9523454.147850 595215.884241 PERF_SUMMARY 0.281495
+
+
+[hpc6081@frnt115 ref]$ cat /tmp/ctrl_c_16_1.log
+[COMM CTRL] Communication Phase Frequency Controller
+[COMM CTRL] Workers: 16 (cores 0-15)
+[COMM CTRL] Monitor: core 30
+[COMM CTRL] Reserved: core 31 (no permission)
+[COMM CTRL] Rank 0 core: 0
+[COMM CTRL] Freq HIGH: 2000 MHz
+[COMM CTRL] Freq MID:  1600 MHz
+[COMM CTRL] Freq LOW:  1200 MHz
+[COMM CTRL] Marker: phase_marker.txt
+[COMM CTRL] Dry run: False
+[COMM CTRL] Polling every 50ms
+
+[COMM CTRL] Setting worker cores 0-15 to 'userspace' governor...
+[COMM CTRL] Set governor on 16/16 cores
+[COMM CTRL] Setting all worker cores to HIGH frequency (compute mode)...
+[COMM CTRL] Monitoring started. Waiting for phase_marker.txt...
+
+[15:53:24.540] Phase transition: COMPUTE -> IO (was 43[15:53:24] PHASE: COMPUTE -> IO (1287.322s)
+  All core[15:53:56.538] Phase transition: IO -> COMMUNICATION (was 31.999s)
+  -> Core 0: 2000 MHz (networking), cores 1-15: 1200 MHz (idle/blocked)
+  -> Data[15:53:56] PHASE: COMMUN[15:53:56.589] Phase transition: COMMUNICATION -> COMPUTE (was 0.051s)
+  -> All 16 worker cores: 2000 MHz (CPU bound)
+
+
+[hpc6081@frnt115 ref]$ cat results_manual_test_c.csv
+run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance,ctrl_transitions
+1,16,12600.763,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>,0
+0
+1,16,9157.421,<t_total>,<t_force>,<t_neigh>,<t_comm>,<t_other>,<performance>,0
+0
+1,16,16392.676,88.469619,45.471332,7.975421,1.483914,33.538952,9481908.080536,0
+0
+1,16,12423.668,88.083671,29.524013,4.735667,20.591053,33.232937,9523454.147850,3
+
+
+
+
+
+# The above results for Test C are all incorrect so we will now update the results for comm_freq_controller.py and integrated_freq_controller.py at 16 MPI rank for our first trial:
+
+
+# comm_freq_controller.py
+# Rank: 16
+# Trial 1:
+login as: hpc6081
+Keyboard-interactive authentication prompts from server:
+| Password:
+| OTP/2FA:
+End of keyboard-interactive prompts from server
+===============================================================================
+
+Welcome to the CAC HPC Cluster Frontenac 2.0!
+For information on using the cluster, please refer to our wiki at:
+https://info.cac.queensu.ca/
+
+We have migrated your data to a new GPFS storage.
+For technical support or to report any issues, email us at cac.help@queensu.ca.
+
+===============================================================================
+
+News - Jan 2, 2026: Frontenac 2.0 has added 2 DGX A100 nodes with 8-A100 40GB each. These
+are excellent for AI training and inference work.
+
+===============================================================================
+
+Note: this node is for workup, testing and job submissions only.
+All production jobs must be submitted to the Frontenac cluster through
+the SLURM scheduler (https://info.cac.queensu.ca/how-to/run-job-scheduler).
+
+Production jobs running on Login nodes will be terminated without notice.
+
+===============================================================================
+
+=== OTP/2FA TOKEN WILL BE REQUIRED via SSH for ALL USERS SOON ===
+
+===============================================================================
+
+Last login: Thu Feb 19 13:24:25 2026 from 185.98.171.234
+[hpc6081@login2 ~]$ salloc --nodes=1 --partition=gpu-rgrant --constraint=lkb   --time=3:00:00 --ntasks=32 --cpus-per-task=1 --exclusive
+salloc: Pending job allocation 5018468
+salloc: job 5018468 queued and waiting for resources
+salloc: job 5018468 has been allocated resources
+salloc: Granted job allocation 5018468
+salloc: Nodes frnt115 are ready for job
+[hpc6081@frnt115 ~]$ cd miniMD
+[hpc6081@frnt115 miniMD]$ cd ref
+[hpc6081@frnt115 ref]$ # 1. Kill ANY leftover controllers from previous runs
+[hpc6081@frnt115 ref]$ pkill -f freq_controller
+
+# 3. Verify clean state
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+
+# 4. Re-create the CSV (wipe old bad rows)
+echo "run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance,ctrl_transitions" > results_manual_test_c.csv
+
+# 5. Clean phase marker
+rm -f phase_marker.txt[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2. Reset all governors back to performance
+[hpc6081@frnt115 ref]$ for c in $(seq 0 29); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 3. Verify clean state
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4. Re-create the CSV (wipe old bad rows)
+[hpc6081@frnt115 ref]$ echo "run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance,ctrl_transitions" > results_manual_test_c.csv
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 5. Clean phase marker
+[hpc6081@frnt115 ref]$ rm -f phase_marker.txt
+[hpc6081@frnt115 ref]$ NUM_WORKERS=16
+[hpc6081@frnt115 ref]$ RUN=1
+[hpc6081@frnt115 ref]$ nano comm_freq_controller.py
+[hpc6081@frnt115 ref]$ nano comm_freq_controller.py
+[hpc6081@frnt115 ref]$ nano integrated_freq_controller.py
+[hpc6081@frnt115 ref]$ nano comm_freq_controller.py
+[hpc6081@frnt115 ref]$ nano integrated_freq_controller.py
+[hpc6081@frnt115 ref]$ NUM_WORKERS=16
+[hpc6081@frnt115 ref]$ RUN=1
+[hpc6081@frnt115 ref]$ make openmpi -j 8
+make[1]: Entering directory '/global/home/hpc6081/miniMD/ref/Obj_openmpi'
+make[1]: '../miniMD_openmpi' is up to date.
+make[1]: Leaving directory '/global/home/hpc6081/miniMD/ref/Obj_openmpi'
+[hpc6081@frnt115 ref]$ # 0e. Check CPU info
+[hpc6081@frnt115 ref]$ lscpu | grep "Model name"
+Model name:                           AMD EPYC 7551P 32-Core Processor
+[hpc6081@frnt115 ref]$ nproc
+32
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq
+1200000
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq
+2000000
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies
+2000000 1600000 1200000
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors
+conservative ondemand userspace powersave performance schedutil
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 0f. Set environment
+[hpc6081@frnt115 ref]$ export OMP_NUM_THREADS=1
+[hpc6081@frnt115 ref]$ export OMP_PROC_BIND=true
+[hpc6081@frnt115 ref]$ export OMP_PLACES=cores
+[hpc6081@frnt115 ref]$ # 1. Kill ANY leftover controllers from previous runs
+[hpc6081@frnt115 ref]$ pkill -f freq_controller
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2. Set NUM_WORKERS and RUN
+[hpc6081@frnt115 ref]$ NUM_WORKERS=16
+[hpc6081@frnt115 ref]$ RUN=1
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4a. Clean phase marker
+[hpc6081@frnt115 ref]$ rm -f phase_marker.txt
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4b. Reset governors first (controller will take over)
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 3. Verify clean state
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ # 4c. Start frequency controller in background on core 30
+[hpc6081@frnt115 ref]$ #     Use python3 -u for UNBUFFERED output (prevents empty log on kill)
+[hpc6081@frnt115 ref]$ #     NOTE: Can substitute comm_freq_controller.py with integrated_freq_controller.py
+[hpc6081@frnt115 ref]$ taskset -c 30 python3 -u comm_freq_controller.py --workers $NUM_WORKERS \
+>     > /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>&1 &
+[1] 236604
+[hpc6081@frnt115 ref]$ CTRL_PID=$!
+[hpc6081@frnt115 ref]$ echo "Controller PID: $CTRL_PID"
+Controller PID: 236604
+[hpc6081@frnt115 ref]$ sleep 3  # wait for controller to initialize
+[hpc6081@frnt115 ref]$ # 4c-verify. Confirm controller is alive and producing output
+[hpc6081@frnt115 ref]$ if ! kill -0 $CTRL_PID 2>/dev/null; then
+>     echo "ERROR: Controller crashed during startup!"
+>     echo "--- Controller log ---"
+>     cat /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+>     echo "--- End log ---"
+>     echo "Fix the issue before proceeding."
+> else
+>     echo "Controller is running (PID $CTRL_PID)"
+>     head -5 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+> fi
+Controller is running (PID 236604)
+[COMM CTRL] Communication Phase Frequency Controller
+[COMM CTRL] Workers: 16 (cores 0-15)
+[COMM CTRL] Monitor: core 30
+[COMM CTRL] Reserved: core 31 (no permission)
+[COMM CTRL] Rank 0 core: 0
+[hpc6081@frnt115 ref]$ # Verify it's alive and shows 2400 MHz
+[hpc6081@frnt115 ref]$ head -8 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+[COMM CTRL] Communication Phase Frequency Controller
+[COMM CTRL] Workers: 16 (cores 0-15)
+[COMM CTRL] Monitor: core 30
+[COMM CTRL] Reserved: core 31 (no permission)
+[COMM CTRL] Rank 0 core: 0
+[COMM CTRL] Freq HIGH: 2400 MHz
+[COMM CTRL] Freq MID:  1600 MHz
+[COMM CTRL] Freq LOW:  1200 MHz
+[hpc6081@frnt115 ref]$ # Should show: "Freq HIGH: 2400 MHz" (NOT 2000!)
+[hpc6081@frnt115 ref]$ # 4d. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4e. Run miniMD — comm phase ENABLED
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD \
+>     2>&1 | tee /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.10 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.41 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 320.94 MB per rank
+Number of chunks: 321
+Average bandwidth: 10.22 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.049 seconds
+Effective bandwidth: 12278.88 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 68.218
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 68.217773 29.404959 4.761199 0.843651 33.207965 12296807.182975 768550.448936 PERF_SUMMARY 0.238956
+
+
+[hpc6081@frnt115 ref]$ # 4f. Read energy AFTER
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test C | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test C | N=16 | Run 1 | Energy: 11093.842 J
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4g. Stop controller
+[hpc6081@frnt115 ref]$ sleep 1
+[hpc6081@frnt115 ref]$ kill $CTRL_PID 2>/dev/null
+[hpc6081@frnt115 ref]$ wait $CTRL_PID 2>/dev/null || true
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4h. Count phase transitions from controller log
+[hpc6081@frnt115 ref]$ TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+[hpc6081@frnt115 ref]$ echo "  Transitions: $TRANSITIONS"
+  Transitions: 3
+[hpc6081@frnt115 ref]$ # 4i. Parse timing
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+16 1 100 8388608 68.217773 29.404959 4.761199 0.843651 33.207965 12296807.182975 768550.448936 PERF_SUMMARY 0.238956
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4j. CRITICAL: Reset governors back to performance
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$ # Verify reset worked
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2198542
+[hpc6081@frnt115 ref]$ # Should say: ~2400000
+[hpc6081@frnt115 ref]$ # 4k. Auto-parse PERF_SUMMARY and record to CSV
+[hpc6081@frnt115 ref]$ PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log | head -1)
+[hpc6081@frnt115 ref]$ echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}'),$TRANSITIONS" >> results_manual_test_c.csv
+[hpc6081@frnt115 ref]$ # 4j. CRITICAL: Reset governors back to performance
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # Verify reset worked
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2412880
+[hpc6081@frnt115 ref]$ # Should say: ~2400000
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ sleep 2
+[hpc6081@frnt115 ref]$ cat /tmp/test_c_16_1.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.10 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.41 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 320.94 MB per rank
+Number of chunks: 321
+Average bandwidth: 10.22 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.049 seconds
+Effective bandwidth: 12278.88 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 68.218
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 68.217773 29.404959 4.761199 0.843651 33.207965 12296807.182975 768550.448936 PERF_SUMMARY 0.238956
+
+
+[hpc6081@frnt115 ref]$ cat tmp/ctrl_c_16_1.log
+cat: tmp/ctrl_c_16_1.log: No such file or directory
+[hpc6081@frnt115 ref]$ cat tmp/ctrl_c_16_1.log
+cat: tmp/ctrl_c_16_1.log: No such file or directory
+[hpc6081@frnt115 ref]$ cat tmp/ctrl_c_16_1.log
+cat: tmp/ctrl_c_16_1.log: No such file or directory
+[hpc6081@frnt115 ref]$ cat results_manual_test_c.csv
+run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance,ctrl_transitions
+1,16,11093.842,68.217773,29.404959,4.761199,0.843651,33.207965,12296807.182975,3
+[hpc6081@frnt115 ref]$ ^C
+[hpc6081@frnt115 ref]$ ^C
+[hpc6081@frnt115 ref]$ cat /tmp/ctrl_c_16_1.log
+[COMM CTRL] Communication Phase Frequency Controller
+[COMM CTRL] Workers: 16 (cores 0-15)
+[COMM CTRL] Monitor: core 30
+[COMM CTRL] Reserved: core 31 (no permission)
+[COMM CTRL] Rank 0 core: 0
+[COMM CTRL] Freq HIGH: 2400 MHz
+[COMM CTRL] Freq MID:  1600 MHz
+[COMM CTRL] Freq LOW:  1200 MHz
+[COMM CTRL] Marker: phase_marker.txt
+[COMM CTRL] Dry run: False
+[COMM CTRL] Polling every 50ms
+
+[COMM CTRL] Setting worker cores 0-15 to 'userspace' governor...
+[COMM CTRL] Set governor on 16/16 cores
+[COMM CTRL] Setting all worker cores to HIGH frequency (compute mode)...
+[COMM CTRL] Monitoring started. Waiting for phase_marker.txt...
+
+[07:11:27.324] Phase transition: COMPUTE -> IO (was 186.359s)
+  -> All 16 worker cores: 1200 MHz (I/O bound)
+[07:11:59.272] Phase transition: IO -> COMMUNICATION (was 31.949s)
+  -> Core 0: 2400 MHz (networking), cores 1-15: 1200 MHz (idle/blocked)
+  -> Data to transfer: 606.99 MB
+[07:11:59.323] Phase transition: COMMUNICATION -> COMPUTE (was 0.051s)
+  -> All 16 worker cores: 2400 MHz (CPU bound)
+[hpc6081@frnt115 ref]$
+
+
+
+# integrated_freq_controller.py
+# Rank: 16
+# Trial 1:
+
+[hpc6081@frnt115 ref]$ echo "run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance,ctrl_transitions" > results_manual_test_c2.csv
+
+[hpc6081@frnt115 ref]$ # ====================
+RUN=1
+
+[hpc6081@frnt115 ref]$ # STEP 4: TEST C — COMM PHASE ON + FREQUENCY CONTROLLER
+# 4a. Clean phase marker
+rm -f phase_marker.txt[hpc6081@frnt115 ref]$ # ====================
+[hpc6081@frnt115 ref]$ # Purpose: The actual optimization. Dynamic frequency scaling.
+[hpc6081@frnt115 ref]$ # Graph: C vs A = total impact. C vs B = freq control savings.
+[hpc6081@frnt115 ref]$ #
+[hpc6081@frnt115 ref]$ # REQUIRES TWO TERMINALS (or use & to background the controller).
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # REPEAT FOR EACH MPI COUNT: 1, 2, 4, 8, 16, 30
+[hpc6081@frnt115 ref]$ # REPEAT FOR EACH RUN: 1 to 25
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 1. Kill ANY leftover controllers from previous runs
+[hpc6081@frnt115 ref]$ pkill -f freq_controller
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 2. Set NUM_WORKERS and RUN
+[hpc6081@frnt115 ref]$ NUM_WORKERS=16
+[hpc6081@frnt115 ref]$ RUN=1
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4a. Clean phase marker
+[hpc6081@frnt115 ref]$ rm -f phase_marker.txt
+[hpc6081@frnt115 ref]$ # 4b. Reset governors first (controller will take over)
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 3. Verify clean state
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ # 4c. Start frequency controller in background on core 30
+[hpc6081@frnt115 ref]$ #     Use python3 -u for UNBUFFERED output (prevents empty log on kill)
+[hpc6081@frnt115 ref]$ #     NOTE: Can substitute comm_freq_controller.py with integrated_freq_controller.py
+[hpc6081@frnt115 ref]$ taskset -c 30 python3 -u integrated_freq_controller.py --workers $NUM_WORKERS \
+>     > /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log 2>&1 &
+[1] 239599
+[hpc6081@frnt115 ref]$ CTRL_PID=$!
+[hpc6081@frnt115 ref]$ echo "Controller PID: $CTRL_PID"
+Controller PID: 239599
+[hpc6081@frnt115 ref]$ sleep 3  # wait for controller to initialize
+[hpc6081@frnt115 ref]$ # 4c-verify. Confirm controller is alive and producing output
+[hpc6081@frnt115 ref]$ if ! kill -0 $CTRL_PID 2>/dev/null; then
+>     echo "ERROR: Controller crashed during startup!"
+>     echo "--- Controller log ---"
+>     cat /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log
+>     echo "--- End log ---"
+>     echo "Fix the issue before proceeding."
+> else
+>     echo "Controller is running (PID $CTRL_PID)"
+>     head -5 /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log
+> fi
+Controller is running (PID 239599)
+[CTRL] Integrated Phase-Aware Frequency Controller
+[CTRL] Workers: 16 (cores 0-15)
+[CTRL] Monitor: core 30
+[CTRL] Reserved: core 31 (no permission — never touched)
+[CTRL] Rank 0 core: 0
+[hpc6081@frnt115 ref]$ # Verify it's alive and shows 2400 MHz
+[hpc6081@frnt115 ref]$ head -8 /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log
+[CTRL] Integrated Phase-Aware Frequency Controller
+[CTRL] Workers: 16 (cores 0-15)
+[CTRL] Monitor: core 30
+[CTRL] Reserved: core 31 (no permission — never touched)
+[CTRL] Rank 0 core: 0
+[CTRL] Marker: phase_marker.txt
+[CTRL] Dry run: False
+[CTRL] Frequencies: [1200.0, 1600.0, 2400.0] MHz
+[hpc6081@frnt115 ref]$ # Should show: "Freq HIGH: 2400 MHz" (NOT 2000!)
+[hpc6081@frnt115 ref]$ # 4d. Read energy BEFORE
+[hpc6081@frnt115 ref]$ MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+[hpc6081@frnt115 ref]$ BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ #This is for integrated_freq_controller.py:
+[hpc6081@frnt115 ref]$ # Different log paths and CSV
+[hpc6081@frnt115 ref]$ mpirun -np $NUM_WORKERS --bind-to core \
+>     ./miniMD_openmpi -i in.lj.miniMD \
+>     2>&1 | tee /tmp/test_c2_${NUM_WORKERS}_${RUN}.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.06 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.51 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 319.94 MB per rank
+Number of chunks: 320
+Average bandwidth: 10.15 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.039 seconds
+Effective bandwidth: 15395.66 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 106.763
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 106.762681 45.000157 7.888534 20.511431 33.362560 7857247.400528 491077.962533 PERF_SUMMARY 0.388709
+
+
+[hpc6081@frnt115 ref]$ # 4f. Read energy AFTER
+[hpc6081@frnt115 ref]$ AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+[hpc6081@frnt115 ref]$ DIFF=$(( AFTER - BEFORE ))
+[hpc6081@frnt115 ref]$ if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+[hpc6081@frnt115 ref]$ ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+[hpc6081@frnt115 ref]$ echo "Test C | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+Test C | N=16 | Run 1 | Energy: 12933.609 J
+[hpc6081@frnt115 ref]$ # 4g. Stop controller
+[hpc6081@frnt115 ref]$ sleep 1
+[hpc6081@frnt115 ref]$ kill $CTRL_PID 2>/dev/null
+[hpc6081@frnt115 ref]$ wait $CTRL_PID 2>/dev/null || true
+[hpc6081@frnt115 ref]$ # 4h. Count phase transitions from controller log
+[hpc6081@frnt115 ref]$ TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+
+# Verify reset worked
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~2400000[hpc6081@frnt115 ref]$ echo "  Transitions: $TRANSITIONS"
+  Transitions: 0
+0
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4i. Parse timing
+[hpc6081@frnt115 ref]$ grep "PERF_SUMMARY" /tmp/test_c2_${NUM_WORKERS}_${RUN}.log
+16 1 100 8388608 106.762681 45.000157 7.888534 20.511431 33.362560 7857247.400528 491077.962533 PERF_SUMMARY 0.388709
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # 4j. CRITICAL: Reset governors back to performance
+[hpc6081@frnt115 ref]$ for c in $(seq 0 $((NUM_WORKERS - 1))); do
+>     echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+> done
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # Verify reset worked
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+performance
+[hpc6081@frnt115 ref]$ # Should say: performance
+[hpc6081@frnt115 ref]$ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+2411524
+[hpc6081@frnt115 ref]$ # Should say: ~2400000
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$
+[hpc6081@frnt115 ref]$ # This is for integrated_freq_controller.py:
+[hpc6081@frnt115 ref]$ PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c2_${NUM_WORKERS}_${RUN}.log | head -1)
+[hpc6081@frnt115 ref]$ echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}'),$TRANSITIONS" >> results_manual_test_c2.csv
+[hpc6081@frnt115 ref]$ sleep 2
+[hpc6081@frnt115 ref]$ cat /tmp/test_c2_16_1.log
+# Create System:
+# Done ....
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings:
+        # MPI processes: 16
+        # OpenMP threads: 1
+        # Inputfile: in.lj.miniMD
+        # Datafile: None
+# Physics Settings:
+        # ForceStyle: LJ
+        # Force Parameters: 1.00 1.00
+        # Units: LJ
+        # Atoms: 8388608
+        # Atom types: 4
+        # System size: 214.99 214.99 214.99 (unit cells: 128 128 128)
+        # Density: 0.844200
+        # Force cutoff: 2.500000
+        # Timestep size: 0.005000
+# Technical Settings:
+        # Neigh cutoff: 2.800000
+        # Half neighborlists: 1
+        # Neighbor bins: 106 106 106
+        # Neighbor frequency: 20
+        # Sorting frequency: 20
+        # Thermo frequency: 100
+        # Ghost Newton: 1
+        # Use intrinsics: 0
+        # Do safe exchange: 0
+        # Size of float: 8
+# Communication Phase Settings:
+        # Comm phase enabled: 1
+        # Comm stand-in size: 309 MB
+        # Comm chunk size: 1024 KB
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -6.773368e+00 -5.019669e+00  0.000
+
+========================================
+Reached mid-simulation checkpoint at timestep 50 (out of 100)
+Exiting parallel region for I/O...
+========================================
+
+========================================
+Performing mid-simulation checkpoint with sustained I/O
+========================================
+Cleaned 16 old checkpoint file(s) from chk/
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 37.94 MB
+All checkpoint data written (37.94 MB in 0.06 seconds). Continuing I/O with padding to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 31.51 seconds
+Checkpoint data written: 37.94 MB per rank
+Total written (with padding): 319.94 MB per rank
+Number of chunks: 320
+Average bandwidth: 10.15 MB/s per rank
+=====================================
+
+
+========================================
+COMMUNICATION PHASE (Rank 0 Only)
+========================================
+Per-rank data (runtime): 37.94 MB (39779940 bytes)
+Total data (runtime): 606.99 MB (636479040 bytes) [16 ranks × per-rank]
+Stand-in total: 309.00 MB (324009984 bytes)
+Using runtime total: 606.99 MB
+Starting MPI loopback send/recv (rank 0 -> rank 0)
+Total bytes to transfer: 606.99 MB
+Chunk size: 1024.00 KB
+  ... sent 51.00 / 606.99 MB
+  ... sent 102.00 / 606.99 MB
+  ... sent 153.00 / 606.99 MB
+  ... sent 204.00 / 606.99 MB
+  ... sent 255.00 / 606.99 MB
+  ... sent 306.00 / 606.99 MB
+  ... sent 357.00 / 606.99 MB
+  ... sent 408.00 / 606.99 MB
+  ... sent 459.00 / 606.99 MB
+  ... sent 510.00 / 606.99 MB
+  ... sent 561.00 / 606.99 MB
+MPI loopback complete: 607 chunks, 606.99 MB total
+
+=== Communication Phase Complete ===
+Duration: 0.039 seconds
+Effective bandwidth: 15395.66 MB/s
+====================================
+
+
+========================================
+Resuming simulation for remaining 50 timesteps
+========================================
+100 7.604876e-01 -5.764401e+00 1.084080e-01 106.763
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+16 1 100 8388608 106.762681 45.000157 7.888534 20.511431 33.362560 7857247.400528 491077.962533 PERF_SUMMARY 0.388709
+
+
+[hpc6081@frnt115 ref]$ cat /tmp/ctrl_c2_16_1.log
+[CTRL] Integrated Phase-Aware Frequency Controller
+[CTRL] Workers: 16 (cores 0-15)
+[CTRL] Monitor: core 30
+[CTRL] Reserved: core 31 (no permission — never touched)
+[CTRL] Rank 0 core: 0
+[CTRL] Marker: phase_marker.txt
+[CTRL] Dry run: False
+[CTRL] Frequencies: [1200.0, 1600.0, 2400.0] MHz
+[CTRL] Beta slowdown limit: 5%
+
+[CTRL] Starting. Waiting for miniMD processes...
+
+[08:00:52] PHASE: COMPUTE -> IO (147.408s)
+  All cores: 1.2GHz (I/O-bound)
+[08:01:23] PHASE: IO -> COMMUNICATION (31.449s)
+  Core 0: 2.4GHz (networking)
+  Others: 1.2GHz (blocked/idle)
+  Data: 607.0MB
+[08:01:23] PHASE: COMMUNICATION -> COMPUTE (0.050s)
+  All cores: 2.4GHz (beta-adaptation starting)
+
+[CTRL] Stopping. Total transitions: 3
+[hpc6081@frnt115 ref]$ cat results_manual_test_c2.csv
+run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance,ctrl_transitions
+1,16,12933.609,106.762681,45.000157,7.888534,20.511431,33.362560,7857247.400528,0
+0
+[hpc6081@frnt115 ref]$
+
