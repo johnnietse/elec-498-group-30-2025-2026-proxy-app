@@ -38,8 +38,10 @@
 
 # 0a. Get an interactive session on frnt115
 salloc --nodes=1 --partition=gpu-rgrant --constraint=lkb \
-       --nodelist=frnt115 --ntasks=30 --cpus-per-task=1 \
+       --nodelist=frnt115 --ntasks=32 --cpus-per-task=1 \
        --exclusive --time=4:00:00
+
+# salloc --nodes=1 --ntasks=32 --cpus-per-task=1 --exclusive --time=3:00:00 --partition=gpu-rgrant --constraint=lkb
 
 # 0b. SSH into node
 ssh frnt115
