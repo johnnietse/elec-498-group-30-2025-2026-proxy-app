@@ -1,240 +1,233 @@
 #!/bin/bash
+set -euo pipefail
 
-# ================= CONFIGURATION =================
-MPI_RANKS=${1:-8}
-PYTHON_SCRIPT="test.py"
-INPUT_FILE="in.lj.miniMD"
+# ================= CONFIG =================
+N=${1:-8}  # must be 1,2,4,8,16,30 for your controller assumptions
+BINARY="./miniMD_openmpi"
+INPUT="in.lj.miniMD"
+CONTROLLER="./comm_freq_controller.py"
+
 RAPL_FILE="/sys/class/powercap/intel-rapl:0/energy_uj"
 MAX_RAPL_FILE="/sys/class/powercap/intel-rapl:0/max_energy_range_uj"
 
-# Frequencies
-RESET_FREQ="2000000"
-TOTAL_CORES=32
+OUTDIR="run_$(date +%Y%m%d_%H%M%S)_n${N}"
+mkdir -p "$OUTDIR"
 
-echo "=========================================================="
-echo "   CAPSTONE ENERGY TEST: NON-SEQUENTIAL CORES"
-echo "=========================================================="
+CTRL_LOG="$OUTDIR/controller.log"
+BASE_LOG="$OUTDIR/baseline.log"
+CTRL_RUN_LOG="$OUTDIR/controlled.log"
+RANKFILE="$OUTDIR/host_rankfile"
 
-trap "pkill -f $PYTHON_SCRIPT; rm -f host_rankfile; exit" INT TERM EXIT
+MON_PID=""
 
-# ================= 1. SMART CORE PARSER =================
-# Returns: "worker_core_1,worker_core_2...|monitor_core"
-get_exact_core_list() {
-    local needed_ranks=$1
-    # parsing 'taskset -cp' output which looks like "pid 1234's current affinity list: 0-3,6"
-    taskset -cp $$ | awk -F': ' '{print $2}' | python3 -c "
+cleanup() {
+  if [[ -n "${MON_PID}" ]] && kill -0 "${MON_PID}" 2>/dev/null; then
+    kill -SIGINT "${MON_PID}" 2>/dev/null || true
+    wait "${MON_PID}" 2>/dev/null || true
+  fi
+}
+trap cleanup INT TERM EXIT
+
+# ================= HELPERS =================
+read_energy_uj() { cat "$RAPL_FILE" 2>/dev/null || echo "0"; }
+read_max_uj() { cat "$MAX_RAPL_FILE" 2>/dev/null || echo "262143328850"; }
+
+energy_diff_uj() {
+  local before=$1 after=$2 maxv=$3
+  local diff=$(( after - before ))
+  if (( diff < 0 )); then diff=$(( diff + maxv )); fi
+  echo "$diff"
+}
+
+now_ns() { date +%s%N; }
+
+# Parse cpuset cores for THIS shell process, return string like "0-3,6,8-9"
+get_cpuset_str() {
+  taskset -cp $$ | awk -F': ' '{print $2}'
+}
+
+# Convert "0-2,5,7-9" -> "0 1 2 5 7 8 9"
+expand_core_list() {
+  python3 - <<'PY'
 import sys
-
-def parse_ranges(r):
-    # Turns '0-2,5,7-9' into [0,1,2,5,7,8,9]
-    cores = []
-    if not r: return []
-    for part in r.split(','):
-        if '-' in part:
-            s, e = map(int, part.split('-'))
-            cores.extend(range(s, e + 1))
-        else:
-            cores.append(int(part))
-    return sorted(list(set(cores)))
-
-try:
-    input_str = sys.stdin.read().strip()
-    all_cores = parse_ranges(input_str)
-    needed = int($needed_ranks)
-
-    # We need (Ranks + 1 Monitor) cores total
-    if len(all_cores) < (needed + 1):
-        print(f'ERROR_NOT_ENOUGH_CORES:{len(all_cores)}', file=sys.stderr)
-        sys.exit(1)
-
-    # Pop the LAST available core for the monitor
-    mon_core = all_cores.pop()
-
-    # Take the first N available cores for workers
-    worker_cores = all_cores[:needed]
-
-    # Return CSV format
-    print(f\"{','.join(map(str, worker_cores))}|{mon_core}\")
-except Exception as e:
-    sys.exit(1)
-"
+s=sys.stdin.read().strip()
+cores=set()
+if s:
+  for part in s.split(','):
+    part=part.strip()
+    if not part:
+      continue
+    if '-' in part:
+      a,b=part.split('-')
+      for c in range(int(a), int(b)+1):
+        cores.add(c)
+    else:
+      cores.add(int(part))
+print(" ".join(map(str, sorted(cores))))
+PY
 }
 
-# ================= UTILS =================
-reset_all_cores() {
-    # Reset everything to 2.0GHz to start fresh
-    for (( core=0; core<TOTAL_CORES; core++ )); do
-        local gov_file="/sys/devices/system/cpu/cpu$core/cpufreq/scaling_governor"
-        local speed_file="/sys/devices/system/cpu/cpu$core/cpufreq/scaling_setspeed"
-        if [ -w "$gov_file" ]; then
-            echo "userspace" > "$gov_file" 2>/dev/null
-            echo "$RESET_FREQ" > "$speed_file" 2>/dev/null
-        fi
-    done
+# Pick worker cores AND monitor core from cpuset.
+# REQUIREMENT (because your controller assumes it): workers are exactly 0..N-1.
+pick_layout() {
+  local n="$1"
+  local cpuset_str expanded
+  cpuset_str="$(get_cpuset_str)"
+  expanded="$(echo "$cpuset_str" | expand_core_list)"
+
+  python3 - <<PY
+import sys
+n=int("$n")
+avail=list(map(int, "$expanded".split())) if "$expanded".strip() else []
+S=set(avail)
+
+# Must have exact worker cores 0..n-1 due to controller logic
+need=list(range(n))
+missing=[c for c in need if c not in S]
+if missing:
+  sys.stderr.write("ERROR: Allocation does not include required worker cores 0..%d\\n" % (n-1))
+  sys.stderr.write("  Missing cores: %s\\n" % missing)
+  sys.stderr.write("  Your controller hard-codes workers as cores 0..N-1, so it would control the wrong CPUs.\\n")
+  sys.stderr.write("  Fix: request an allocation that includes cores 0..N-1 (or modify controller to accept an explicit core list).\\n")
+  sys.exit(2)
+
+workers=need
+
+# Pick monitor as highest available core not used by workers
+candidates=[c for c in avail if c not in set(workers)]
+if not candidates:
+  sys.stderr.write("ERROR: No spare core for monitor. Need N workers + 1 extra core in your allocation.\\n")
+  sys.exit(3)
+
+mon=max(candidates)
+
+print(",".join(map(str,workers)) + "|" + str(mon))
+PY
 }
 
-start_energy_monitor() {
-    cat "$RAPL_FILE" > start_snapshot.tmp 2>/dev/null || echo "0" > start_snapshot.tmp
+make_rankfile() {
+  # rank i -> core i (0..N-1). Matches controller assumption.
+  local n="$1"
+  : > "$RANKFILE"
+  for ((r=0; r<n; r++)); do
+    echo "rank $r=localhost slot=$r" >> "$RANKFILE"
+  done
 }
 
-stop_energy_monitor() {
-    local END_VAL=$(cat "$RAPL_FILE" 2>/dev/null || echo 0)
-    local START_VAL=$(cat start_snapshot.tmp 2>/dev/null || echo 0)
-    local MAX_VAL=$(cat "$MAX_RAPL_FILE" 2>/dev/null || echo 262143328850)
-    python3 -c "print($END_VAL - $START_VAL if ($END_VAL - $START_VAL) >= 0 else ($END_VAL - $START_VAL) + $MAX_VAL)"
-    rm -f start_snapshot.tmp
+reset_governors_perf_workers() {
+  # Only reset worker cores 0..N-1 (don’t touch other allocated cores)
+  local n="$1"
+  for ((c=0; c<n; c++)); do
+    echo "performance" > "/sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor" 2>/dev/null || true
+  done
 }
 
-# ================= BENCHMARK LOOP =================
-run_benchmark() {
-    local mode=$1
+run_case() {
+  local label="$1"          # BASELINE or CONTROLLED
+  local log="$2"            # output log file
+  local use_controller="$3" # 0/1
+  local monitor_core="$4"
 
-    reset_all_cores
+  # Start controller if needed (no waiting for readiness)
+  if [[ "$use_controller" == "1" ]]; then
+    : > "$CTRL_LOG"
+    taskset -c "$monitor_core" python3 -u "$CONTROLLER" --workers "$N" > "$CTRL_LOG" 2>&1 &
+    MON_PID=$!
+    # small settle so governor/freq writes happen before measurement starts
+    sleep 0.2
+  else
+    MON_PID=""
+  fi
 
-    # 1. PARSE ACTUAL AVAILABLE CORES
-    local ALLOC_STR=$(get_exact_core_list $MPI_RANKS)
-    if [[ $ALLOC_STR == "ERROR"* ]]; then
-        echo "Not enough cores available!" >&2
-        exit 1
-    fi
+  local max_uj before_uj after_uj diff_uj
+  local start_ns end_ns
+  max_uj="$(read_max_uj)"
+  before_uj="$(read_energy_uj)"
+  start_ns="$(now_ns)"
 
-    local WORKER_CORES_CSV=$(echo "$ALLOC_STR" | cut -d'|' -f1)
-    local MONITOR_CORE=$(echo "$ALLOC_STR" | cut -d'|' -f2)
+  mpirun -np "$N" \
+    --rankfile "$RANKFILE" \
+    --report-bindings \
+    "$BINARY" -i "$INPUT" > "$log" 2>&1
 
-    # 2. GENERATE OPENMPI RANKFILE
-    # This maps Rank 0 -> First Worker Core, Rank 1 -> Second Worker Core, etc.
-    # It completely ignores sequential logic and uses your EXACT list.
-    rm -f host_rankfile
-    local rank=0
-    IFS=',' read -ra ADDR <<< "$WORKER_CORES_CSV"
-    for core in "${ADDR[@]}"; do
-        echo "rank $rank=localhost slot=$core" >> host_rankfile
-        ((rank++))
-    done
+  end_ns="$(now_ns)"
+  after_uj="$(read_energy_uj)"
 
-    
+  # Stop controller after run
+  if [[ -n "${MON_PID}" ]] && kill -0 "${MON_PID}" 2>/dev/null; then
+    kill -SIGINT "${MON_PID}" 2>/dev/null || true
+    wait "${MON_PID}" 2>/dev/null || true
+    MON_PID=""
+  fi
 
-    # ================= BASELINE LOGIC =================
-    if [ "$mode" == "BASELINE" ]; then
-        # =======================================================
-        #  OPTIMIZATION: FORCE MPI TO YIELD (SLEEP) WHEN WAITING
-        # =======================================================
-        # 1. Tell OpenMPI to yield the processor when idle
-        export OMPI_MCA_mpi_yield_when_idle=0
-        
-        # 2. Adjust the pause count to yield sooner (optional but recommended)
-        export OMPI_MCA_opal_progress_yield_when_idle=0
+  diff_uj="$(energy_diff_uj "$before_uj" "$after_uj" "$max_uj")"
 
-        # 3. If you use OpenMP threads inside MPI ranks:
-        export OMP_WAIT_POLICY=ACTIVE
-        export OMP_PROC_BIND=false
+  local wall_s energy_j
+  wall_s="$(echo "scale=6; ($end_ns - $start_ns) / 1000000000" | bc -l)"
+  energy_j="$(echo "scale=6; $diff_uj / 1000000" | bc -l)"
 
-        # ---------------------------------------------------------
-        # 2. FORCE HARDWARE AWAKE (THE HEATER TRICK)
-        # ---------------------------------------------------------
-        # We launch a low-priority infinite loop on every worker core.
-        # It only runs when miniMD pauses for I/O, forcing the CPU 
-        # to stay at 100% Util / 2.0 GHz instead of sleeping.
-        # HEATER_PIDS=""
-        # IFS=',' read -ra CORES <<< "$WORKER_CORES_CSV"
-        # for core in "${CORES[@]}"; do
-        #     # nice -n 19 means "lowest priority" -> won't slow down miniMD
-        #     taskset -c $core nice -n 19 python3 -c 'while True: pass' > /dev/null 2>&1 & 
-        #     HEATER_PIDS="$HEATER_PIDS $!"
-        # done
-        
-        start_energy_monitor
-        local start_t=$(date +%s.%N)
-
-        # Use Rankfile to force binding on the exact cores we own
-        export OMP_NUM_THREADS=1
-        mpirun -np $MPI_RANKS \
-            --rankfile host_rankfile \
-            --report-bindings \
-            ./miniMD_openmpi -i $INPUT_FILE > run_baseline.log 2>&1
-
-        local energy_raw=$(stop_energy_monitor)
-        local end_t=$(date +%s.%N)
-
-    # ================= MONITORED LOGIC =================
-    elif [ "$mode" == "MONITORED" ]; then
-        # =======================================================
-        #  OPTIMIZATION: FORCE MPI TO YIELD (SLEEP) WHEN WAITING
-        # =======================================================
-         # 1. Tell OpenMPI to yield the processor when idle
-        export OMPI_MCA_mpi_yield_when_idle=0
-        
-        # 2. Adjust the pause count to yield sooner (optional but recommended)
-        export OMPI_MCA_opal_progress_yield_when_idle=0
-
-        # 3. If you use OpenMP threads inside MPI ranks:
-        export OMP_WAIT_POLICY=ACTIVE
-        export OMP_PROC_BIND=false
-
-        #  # ---------------------------------------------------------
-        # # 2. FORCE HARDWARE AWAKE (THE HEATER TRICK)
-        # # ---------------------------------------------------------
-        # # We launch a low-priority infinite loop on every worker core.
-        # # It only runs when miniMD pauses for I/O, forcing the CPU 
-        # # to stay at 100% Util / 2.0 GHz instead of sleeping.
-        # HEATER_PIDS=""
-        # IFS=',' read -ra CORES <<< "$WORKER_CORES_CSV"
-        # for core in "${CORES[@]}"; do
-        #     # nice -n 19 means "lowest priority" -> won't slow down miniMD
-        #     taskset -c $core nice -n 19 python3 -c 'while True: pass' > /dev/null 2>&1 & 
-        #     HEATER_PIDS="$HEATER_PIDS $!"
-        # done
-
-        # 1. Start Monitor on the explicit MONITOR_CORE
-        #    Pass the CSV list of workers so Python knows exactly who to watch
-        taskset -c $MONITOR_CORE python3 -u $PYTHON_SCRIPT --heartbeat --cores "$WORKER_CORES_CSV" > monitor_output.log 2>&1 &
-        MON_PID=$!
-
-        # Wait until monitor prints readiness (warmup complete)
-        timeout 10 bash -c 'until grep -q "\[MONITOR_READY\]" monitor_output.log; do sleep 0.1; done'
-
-        start_energy_monitor
-        local start_t=$(date +%s.%N)
-
-        # 2. Run MPI with Rankfile
-        export OMP_NUM_THREADS=1
-        mpirun -np $MPI_RANKS \
-            --rankfile host_rankfile \
-            --report-bindings \
-            ./miniMD_openmpi -i $INPUT_FILE > run_monitored.log 2>&1
-
-        local end_t=$(date +%s.%N)
-        local energy_raw=$(stop_energy_monitor)
-
-        kill -SIGINT $MON_PID 2>/dev/null
-        wait $MON_PID 2>/dev/null
-    fi
-
-    # ================= CALCULATION =================
-    local energy_joules=$(echo "$energy_raw / 1000000" | bc -l)
-    local time_diff=$(echo "$end_t - $start_t" | bc -l)
-    echo "$time_diff $energy_joules"
+  echo "$wall_s $energy_j"
 }
 
-# ================= RUN =================
+# ================= MAIN =================
+echo "=========================================================="
+echo "miniMD + comm_freq_controller evaluation"
+echo "Workers (MPI ranks): $N"
+echo "Output dir: $OUTDIR"
+echo "=========================================================="
 
-echo "1. Running Baseline..."
-read base_time base_energy <<< $(run_benchmark "BASELINE")
-echo "   Baseline:  ${base_time}s | ${base_energy}J"
+# Basic checks
+[[ -f "$BINARY" ]] || { echo "ERROR: $BINARY not found"; exit 1; }
+[[ -f "$INPUT" ]] || { echo "ERROR: $INPUT not found"; exit 1; }
+[[ -f "$CONTROLLER" ]] || { echo "ERROR: $CONTROLLER not found"; exit 1; }
 
-echo "2. Running Monitored..."
-read mon_time mon_energy <<< $(run_benchmark "MONITORED")
-echo "   Monitored: ${mon_time}s | ${mon_energy}J"
+# Show cpuset and expanded list
+CPUSET_STR="$(get_cpuset_str)"
+CPUSET_EXPANDED="$(echo "$CPUSET_STR" | expand_core_list)"
+echo "[INFO] taskset cpuset: $CPUSET_STR"
+echo "[INFO] expanded cores: $CPUSET_EXPANDED"
 
-# ================= RESULTS =================
+# Pick worker cores + monitor core automatically
+LAYOUT="$(pick_layout "$N")"
+WORKER_CORES="$(echo "$LAYOUT" | cut -d'|' -f1)"
+MONITOR_CORE="$(echo "$LAYOUT" | cut -d'|' -f2)"
+
+echo "[INFO] Worker cores: $WORKER_CORES (must be 0..$((N-1)) for this controller)"
+echo "[INFO] Monitor core: $MONITOR_CORE (auto-picked)"
+
+# Build rankfile (rank i -> core i)
+make_rankfile "$N"
+
+# Reset worker governors back to performance before baseline
+reset_governors_perf_workers "$N"
+
+echo ""
+echo "1) BASELINE (no controller)"
+read base_time base_energy <<< "$(run_case "BASELINE" "$BASE_LOG" 0 "$MONITOR_CORE")"
+echo "   Baseline:   ${base_time}s | ${base_energy}J"
+
+# Reset worker governors before controlled run
+reset_governors_perf_workers "$N"
+
+echo ""
+echo "2) CONTROLLED (controller running on monitor core)"
+read ctrl_time ctrl_energy <<< "$(run_case "CONTROLLED" "$CTRL_RUN_LOG" 1 "$MONITOR_CORE")"
+echo "   Controlled: ${ctrl_time}s | ${ctrl_energy}J"
+
+# Results
+echo ""
 if (( $(echo "$base_time > 0" | bc -l) )); then
-    time_pct=$(echo "(($mon_time - $base_time) / $base_time) * 100" | bc -l)
-    saved_j=$(echo "$base_energy - $mon_energy" | bc -l)
-    energy_pct=$(echo "(($base_energy - $mon_energy) / $base_energy) * 100" | bc -l)
+  time_pct=$(echo "scale=4; (($ctrl_time - $base_time) / $base_time) * 100" | bc -l)
+  saved_j=$(echo "scale=6; $base_energy - $ctrl_energy" | bc -l)
+  energy_pct=$(echo "scale=4; (($base_energy - $ctrl_energy) / $base_energy) * 100" | bc -l)
 
-    printf "\n================ RESULTS ================\n"
-    printf "Runtime Impact: %+.2f%%\n" $time_pct
-    printf "Energy Savings: %s Joules (%.2f%%)\n" $saved_j $energy_pct
+  echo "================ RESULTS ================"
+  printf "Runtime Impact: %+.2f%%\n" "$time_pct"
+  printf "Energy Savings: %s J (%.2f%%)\n" "$saved_j" "$energy_pct"
+  echo "Logs:"
+  echo "  Baseline:    $BASE_LOG"
+  echo "  Controlled:  $CTRL_RUN_LOG"
+  echo "  Controller:  $CTRL_LOG"
 else
-    echo "Error: Baseline time was 0"
+  echo "ERROR: Baseline time was 0"
 fi
