@@ -37,9 +37,7 @@
 # ====================
 
 # 0a. Get an interactive session on frnt115
-salloc --nodes=1 --partition=gpu-rgrant --constraint=lkb \
-       --nodelist=frnt115 --ntasks=32 --cpus-per-task=1 \
-       --exclusive --time=4:00:00
+salloc --nodes=1 --partition=gpu-rgrant --constraint=lkb --nodelist=frnt115 --ntasks=32 --cpus-per-task=1 --exclusive --time=4:00:00
 
 # salloc --nodes=1 --ntasks=32 --cpus-per-task=1 --exclusive --time=3:00:00 --partition=gpu-rgrant --constraint=lkb
 
@@ -104,7 +102,7 @@ echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
 # REPEAT FOR EACH RUN: 1 to 25 (or at least 5)
 
 # Example: 16 MPI processes, Run 1
-NUM_WORKERS=16
+NUM_WORKERS=1
 RUN=1
 
 # 2a. Reset governors
@@ -155,7 +153,7 @@ sleep 2
 # REPEAT FOR EACH RUN: 1 to 25
 
 NUM_WORKERS=16
-RUN=1
+RUN=9
 
 # 3a. Reset governors
 for c in $(seq 0 $((NUM_WORKERS - 1))); do
@@ -225,6 +223,16 @@ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
 # 4c. Start frequency controller in background on core 30
 #     Use python3 -u for UNBUFFERED output (prevents empty log on kill)
 #     NOTE: Can substitute comm_freq_controller.py with integrated_freq_controller.py
+
+
+taskset -c 30 python3 -u comm_freq_controller.py --workers $NUM_WORKERS \
+    > /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>&1 &
+CTRL_PID=$!
+echo "Controller PID: $CTRL_PID"
+sleep 3  # wait for controller to initialize
+
+#OR
+
 taskset -c 30 python3 -u integrated_freq_controller.py --workers $NUM_WORKERS \
     > /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log 2>&1 &
 CTRL_PID=$!
@@ -232,6 +240,24 @@ echo "Controller PID: $CTRL_PID"
 sleep 3  # wait for controller to initialize
 
 # 4c-verify. Confirm controller is alive and producing output
+if ! kill -0 $CTRL_PID 2>/dev/null; then
+    echo "ERROR: Controller crashed during startup!"
+    echo "--- Controller log ---"
+    cat /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+    echo "--- End log ---"
+    echo "Fix the issue before proceeding."
+else
+    echo "Controller is running (PID $CTRL_PID)"
+    head -5 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+fi
+
+# Verify it's alive and shows 2400 MHz
+head -8 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+# Should show: "Freq HIGH: 2400 MHz" (NOT 2000!)
+
+
+# OR
+
 if ! kill -0 $CTRL_PID 2>/dev/null; then
     echo "ERROR: Controller crashed during startup!"
     echo "--- Controller log ---"
@@ -281,15 +307,17 @@ wait $CTRL_PID 2>/dev/null || true
 #   TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
 #   echo "  Transitions: $TRANSITIONS"
 
+# OR 
+
 # FOR integrated_freq_controller.py (Test C2):
 #   TRANSITIONS=$(grep -cE "(Phase transition:|PHASE:)" /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
 #   echo "  Transitions: $TRANSITIONS"
 
-# >>> Uncomment the ONE matching your controller. Example for comm_freq_controller:
-# TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
-#echo "  Transitions: $TRANSITIONS"
+
 
 # 4i. Parse timing
+grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+# OR
 grep "PERF_SUMMARY" /tmp/test_c2_${NUM_WORKERS}_${RUN}.log
 
 # 4j. CRITICAL: Reset governors back to performance
@@ -308,6 +336,7 @@ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
 PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log | head -1)
 echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}'),$TRANSITIONS" >> results_manual_test_c.csv
 
+# OR
 
 # This is for integrated_freq_controller.py:
 PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c2_${NUM_WORKERS}_${RUN}.log | head -1)
@@ -522,3 +551,9 @@ cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
 #   Purpose: "Visual overview of the entire frequency-scaling landscape"
 #
 # ============================================================
+
+
+# Ignored this command:
+# >>> Uncomment the ONE matching your controller. Example for comm_freq_controller:
+# TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+#echo "  Transitions: $TRANSITIONS"
