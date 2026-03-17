@@ -1,0 +1,48 @@
+# ====================
+# STEP 3: TEST B — COMM PHASE ON, NO CONTROLLER (performance governor)
+# ====================
+# Purpose: Measures the overhead of adding the communication phase.
+# Graph: A vs B = overhead. B vs C = energy savings from controller.
+
+# REPEAT FOR EACH MPI COUNT: 1, 2, 4, 8, 16, 30
+# REPEAT FOR EACH RUN: 1 to 25
+
+# NUM_WORKERS=16
+# RUN=9
+
+NUM_WORKERS=16
+RUN=10
+
+
+# 3a. Reset governors
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# 3b. Clean phase marker
+rm -f phase_marker.txt
+
+# 3c. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 3d. Run miniMD — comm phase ENABLED (default, no --comm_phase flag)
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD \
+    2>&1 | tee /tmp/test_b_${NUM_WORKERS}_${RUN}.log
+
+# 3e. Read energy AFTER (with wraparound)
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+DIFF=$(( AFTER - BEFORE ))
+if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test B | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 3f. Parse timing
+grep "PERF_SUMMARY" /tmp/test_b_${NUM_WORKERS}_${RUN}.log
+
+# 3g. Auto-parse PERF_SUMMARY and record to CSV
+PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_b_${NUM_WORKERS}_${RUN}.log | head -1)
+echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}')" >> results_manual_test_b.csv
+
+sleep 2

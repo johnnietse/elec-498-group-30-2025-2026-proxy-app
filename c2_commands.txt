@@ -14,9 +14,10 @@
 pkill -f freq_controller
 
 # 2. Set NUM_WORKERS and RUN
-NUM_WORKERS=8
-RUN=5
-
+# NUM_WORKERS=8
+# RUN=5
+NUM_WORKERS=16
+RUN=10
 
 
 # 4a. Clean phase marker
