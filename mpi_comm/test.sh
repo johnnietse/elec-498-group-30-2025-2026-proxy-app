@@ -10,7 +10,7 @@ CONTROLLER="./monitor.py"
 RAPL_FILE="/sys/class/powercap/intel-rapl:0/energy_uj"
 MAX_RAPL_FILE="/sys/class/powercap/intel-rapl:0/max_energy_range_uj"
 
-WORKER_CORE_RANGE="4-29"   # 26 worker cores
+WORKER_CORE_RANGE="0-29"
 MONITOR_CORE="30"
 RESERVED_CORE="31"
 
