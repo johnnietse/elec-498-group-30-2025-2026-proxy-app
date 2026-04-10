@@ -1,0 +1,559 @@
+# ============================================================
+# COMPLETE MANUAL COMMANDS GUIDE — Tests A, B, C, D
+# ============================================================
+# Run these commands ONE BY ONE in an interactive session on frnt115.
+# This produces data for every graph needed in the report.
+#
+# NOTE: Replace NUM_WORKERS with your desired MPI count (e.g., 16).
+#       Repeat each test multiple times (e.g., 5-25 runs) per config.
+# ============================================================
+#
+# THE STORY OUR GRAPHS TELL (4 parts):
+#
+# Part 1: "We save energy"
+#   Graphs 1, 3, 4, 15 — Test C uses less energy than A and B.
+#
+# Part 2: "Without slowing anything down"
+#   Graphs 2, 8, 9, 10, 13, 14 — Execution time is identical
+#   across all three tests. The comm phase adds negligible overhead
+#   (A ≈ B time) and the controller adds zero overhead (B ≈ C time).
+#
+# Part 3: "Dynamic frequency beats fixed frequency"
+#   Graphs 5, 6, 7 — Test D (fixed low freq) saves energy BUT is
+#   slow. Test C achieves the same energy savings at full speed — 
+#   the best of both worlds.
+#
+# Part 4: "Results are reproducible and statistically sound"
+#   Graphs 12, 16, 17 — Box plots show consistency across runs.
+#   The controller actively transitions between phases.
+#
+# NOTE: comm_freq_controller.py and integrated_freq_controller.py
+#       are interchangeable for Test C. Either one works.
+# ============================================================
+
+
+# ====================
+# STEP 0: CONNECT
+# ====================
+
+# 0a. Get an interactive session on frnt115
+salloc --nodes=1 --partition=gpu-rgrant --constraint=lkb --nodelist=frnt115 --ntasks=32 --cpus-per-task=1 --exclusive --time=4:00:00
+
+# salloc --nodes=1 --ntasks=32 --cpus-per-task=1 --exclusive --time=3:00:00 --partition=gpu-rgrant --constraint=lkb
+
+# 0b. SSH into node
+ssh frnt115
+
+# 0c. Navigate to working directory
+cd /path/to/your/miniMD/directory
+
+# 0d. Build miniMD (if not done already)
+make openmpi -j 8
+
+# 0e. Check CPU info
+lscpu | grep "Model name"
+nproc
+cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq
+cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_frequencies
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_available_governors
+
+# 0f. Set environment
+export OMP_NUM_THREADS=1
+export OMP_PROC_BIND=true
+export OMP_PLACES=cores
+
+# 0g. Prepare CSV files for all tests
+echo "run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance" > results_manual_test_a.csv
+echo "run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance" > results_manual_test_b.csv
+echo "run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance,ctrl_transitions" > results_manual_test_c.csv
+echo "run,nprocs,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance,ctrl_transitions" > results_manual_test_c2.csv
+echo "run,nprocs,freq_mhz,energy_j,time_s,t_force,t_neigh,t_comm,t_other,performance" > results_manual_test_d.csv
+
+
+# ====================
+# STEP 1: IDLE BASELINE
+# ====================
+# Measures how much power the node uses when doing NOTHING.
+# Needed to calculate dynamic energy (total - idle).
+
+# 1a. Ensure performance governor
+for c in $(seq 0 29); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# 1b. Measure idle for 10 seconds
+IDLE_BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+sleep 10
+IDLE_AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+IDLE_DIFF=$(( IDLE_AFTER - IDLE_BEFORE ))
+echo "Idle energy over 10s: $(( IDLE_DIFF / 1000000 )) J"
+echo "Idle power: $(echo "scale=2; $IDLE_DIFF / 10000000" | bc -l) W"
+# RECORD THIS NUMBER: idle_power_w = ______ W
+
+
+# ====================
+# STEP 2: TEST A — BASELINE (performance governor, comm phase OFF)
+# ====================
+# Purpose: Control experiment. Max frequency, no optimizations.
+# Graph: Provides the "before" bar in Energy and Time charts.
+
+# REPEAT FOR EACH MPI COUNT: 1, 2, 4, 8, 16, 30
+# REPEAT FOR EACH RUN: 1 to 25 (or at least 5)
+
+# Example: 16 MPI processes, Run 1
+NUM_WORKERS=1
+RUN=1
+
+# 2a. Reset governors
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# 2b. Verify governor
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~2400000 (or whatever max is)
+
+# 2c. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 2d. Run miniMD — comm phase DISABLED
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0 \
+    2>&1 | tee /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2e. Read energy AFTER
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+DIFF=$(( AFTER - BEFORE ))
+if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test A | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 2f. Parse timing from log
+grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log
+
+# 2g. Auto-parse PERF_SUMMARY and record to CSV
+PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_a_${NUM_WORKERS}_${RUN}.log | head -1)
+echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}')" >> results_manual_test_a.csv
+
+# 2h. Cleanup
+sleep 2
+
+
+# ====================
+# STEP 3: TEST B — COMM PHASE ON, NO CONTROLLER (performance governor)
+# ====================
+# Purpose: Measures the overhead of adding the communication phase.
+# Graph: A vs B = overhead. B vs C = energy savings from controller.
+
+# REPEAT FOR EACH MPI COUNT: 1, 2, 4, 8, 16, 30
+# REPEAT FOR EACH RUN: 1 to 25
+
+NUM_WORKERS=16
+RUN=9
+
+# 3a. Reset governors
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# 3b. Clean phase marker
+rm -f phase_marker.txt
+
+# 3c. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 3d. Run miniMD — comm phase ENABLED (default, no --comm_phase flag)
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD \
+    2>&1 | tee /tmp/test_b_${NUM_WORKERS}_${RUN}.log
+
+# 3e. Read energy AFTER (with wraparound)
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+DIFF=$(( AFTER - BEFORE ))
+if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test B | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 3f. Parse timing
+grep "PERF_SUMMARY" /tmp/test_b_${NUM_WORKERS}_${RUN}.log
+
+# 3g. Auto-parse PERF_SUMMARY and record to CSV
+PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_b_${NUM_WORKERS}_${RUN}.log | head -1)
+echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}')" >> results_manual_test_b.csv
+
+sleep 2
+
+
+# ====================
+# STEP 4: TEST C — COMM PHASE ON + FREQUENCY CONTROLLER
+# ====================
+# Purpose: The actual optimization. Dynamic frequency scaling.
+# Graph: C vs A = total impact. C vs B = freq control savings.
+#
+# REQUIRES TWO TERMINALS (or use & to background the controller).
+
+# REPEAT FOR EACH MPI COUNT: 1, 2, 4, 8, 16, 30
+# REPEAT FOR EACH RUN: 1 to 25
+
+# 1. Kill ANY leftover controllers from previous runs
+pkill -f freq_controller
+
+# 2. Set NUM_WORKERS and RUN
+NUM_WORKERS=16
+RUN=1
+
+# 4a. Clean phase marker
+rm -f phase_marker.txt
+
+# 4b. Reset governors first (controller will take over)
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+
+# 3. Verify clean state
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+
+# 4c. Start frequency controller in background on core 30
+#     Use python3 -u for UNBUFFERED output (prevents empty log on kill)
+#     NOTE: Can substitute comm_freq_controller.py with integrated_freq_controller.py
+
+
+taskset -c 30 python3 -u comm_freq_controller.py --workers $NUM_WORKERS \
+    > /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>&1 &
+CTRL_PID=$!
+echo "Controller PID: $CTRL_PID"
+sleep 3  # wait for controller to initialize
+
+#OR
+
+taskset -c 30 python3 -u integrated_freq_controller.py --workers $NUM_WORKERS \
+    > /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log 2>&1 &
+CTRL_PID=$!
+echo "Controller PID: $CTRL_PID"
+sleep 3  # wait for controller to initialize
+
+# 4c-verify. Confirm controller is alive and producing output
+if ! kill -0 $CTRL_PID 2>/dev/null; then
+    echo "ERROR: Controller crashed during startup!"
+    echo "--- Controller log ---"
+    cat /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+    echo "--- End log ---"
+    echo "Fix the issue before proceeding."
+else
+    echo "Controller is running (PID $CTRL_PID)"
+    head -5 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+fi
+
+# Verify it's alive and shows 2400 MHz
+head -8 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+# Should show: "Freq HIGH: 2400 MHz" (NOT 2000!)
+
+
+# OR
+
+if ! kill -0 $CTRL_PID 2>/dev/null; then
+    echo "ERROR: Controller crashed during startup!"
+    echo "--- Controller log ---"
+    cat /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log
+    echo "--- End log ---"
+    echo "Fix the issue before proceeding."
+else
+    echo "Controller is running (PID $CTRL_PID)"
+    head -5 /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log
+fi
+
+# Verify it's alive and shows 2400 MHz
+head -8 /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log
+# Should show: "Freq HIGH: 2400 MHz" (NOT 2000!)
+
+# 4d. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 4e. Run miniMD — comm phase ENABLED (this is for comm_freq_controller.py):
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD \
+    2>&1 | tee /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+
+#This is for integrated_freq_controller.py:
+# Different log paths and CSV
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD \
+    2>&1 | tee /tmp/test_c2_${NUM_WORKERS}_${RUN}.log
+
+
+# 4f. Read energy AFTER
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+DIFF=$(( AFTER - BEFORE ))
+if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test C | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 4g. Stop controller
+sleep 1
+kill $CTRL_PID 2>/dev/null
+wait $CTRL_PID 2>/dev/null || true
+
+# 4h. Count phase transitions from controller log
+
+# FOR comm_freq_controller.py (Test C):
+#   TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+#   echo "  Transitions: $TRANSITIONS"
+
+# OR 
+
+# FOR integrated_freq_controller.py (Test C2):
+#   TRANSITIONS=$(grep -cE "(Phase transition:|PHASE:)" /tmp/ctrl_c2_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+#   echo "  Transitions: $TRANSITIONS"
+
+
+
+# 4i. Parse timing
+grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+# OR
+grep "PERF_SUMMARY" /tmp/test_c2_${NUM_WORKERS}_${RUN}.log
+
+# 4j. CRITICAL: Reset governors back to performance
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# Verify reset worked
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~2400000
+
+# 4k. Auto-parse PERF_SUMMARY and record to CSV
+# This is for comm_freq_controller.py:
+PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log | head -1)
+echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}'),$TRANSITIONS" >> results_manual_test_c.csv
+
+# OR
+
+# This is for integrated_freq_controller.py:
+PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c2_${NUM_WORKERS}_${RUN}.log | head -1)
+echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}'),$TRANSITIONS" >> results_manual_test_c2.csv
+
+
+sleep 2
+
+
+# ====================
+# STEP 5: TEST D — FIXED FREQUENCY SWEEP
+# ====================
+# Purpose: Show that running at a FIXED lower frequency saves energy
+#          BUT slows things down. Proves dynamic (Test C) is better.
+# Graph: Line chart showing energy vs time tradeoff at each freq.
+
+# REPEAT FOR EACH FREQUENCY: 1200, 1600, 2000, 2400 MHz
+# REPEAT FOR EACH MPI COUNT: 1, 2, 4, 8, 16, 30
+# REPEAT FOR EACH RUN: 1 to 25
+
+NUM_WORKERS=16
+TARGET_FREQ=1200000  # Change to: 1200000, 1600000, 2000000, 2400000
+FREQ_MHZ=$((TARGET_FREQ / 1000))
+RUN=1
+
+# 5a. Set userspace governor and fixed frequency on all worker cores
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "userspace" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+    echo "$TARGET_FREQ" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_setspeed
+done
+
+# 5b. Verify it took effect
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: userspace
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: the freq you set (e.g., 1200000)
+
+# 5c. Clean phase marker
+rm -f phase_marker.txt
+
+# 5d. Read energy BEFORE
+sleep 1
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 5e. Run miniMD — comm phase ENABLED (same as B, for fair comparison)
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD \
+    2>&1 | tee /tmp/test_d_${FREQ_MHZ}_${NUM_WORKERS}_${RUN}.log
+
+# 5f. Read energy AFTER
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+DIFF=$(( AFTER - BEFORE ))
+if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test D | Freq=${FREQ_MHZ}MHz | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 5g. Parse timing
+grep "PERF_SUMMARY" /tmp/test_d_${FREQ_MHZ}_${NUM_WORKERS}_${RUN}.log
+
+# 5h. Auto-parse PERF_SUMMARY and record to CSV
+PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_d_${FREQ_MHZ}_${NUM_WORKERS}_${RUN}.log | head -1)
+echo "$RUN,$NUM_WORKERS,$FREQ_MHZ,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}')" >> results_manual_test_d.csv
+
+# 5i. Reset governors back to performance BEFORE next run/freq
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+sleep 2
+
+
+# ====================
+# STEP 6: FINAL GOVERNOR RESET (DO THIS AT THE END OF ALL TESTS)
+# ====================
+
+for c in $(seq 0 29); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# Verify
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+
+
+# ============================================================
+#  COMPLETE RUN ORDER (SUGGESTED)
+# ============================================================
+# 
+# For each MPI count N in {1, 2, 4, 8, 16, 30}:
+#   For each run in {1..5}:  (or 1..25 for full data)
+#     1. Run Test A (baseline)
+#     2. Run Test B (comm phase ON)
+#     3. Run Test C (comm + controller)  ← reset governors after!
+#     4. Run Test D @ 1200 MHz           ← reset governors after!
+#     5. Run Test D @ 1600 MHz           ← reset governors after!
+#     6. Run Test D @ 2000 MHz           ← reset governors after!
+#     7. Run Test D @ 2400 MHz           ← reset governors after!
+#
+# This interleaving strategy reduces systematic bias
+# (thermal drift, background load changes, etc.)
+#
+# Total runs: 6 MPI counts × 5 runs × 7 configs = 210 runs
+# At ~30 sec/run, thats ~105 minutes ≈ 2 hours
+
+
+# ============================================================
+#  GRAPHS TO GENERATE (comprehensive list)
+# ============================================================
+#
+# === PRIMARY GRAPHS (Must-Have for Report) ===
+#
+# GRAPH 1: Grouped Bar — Total Energy (J) per Test
+#   X-axis: MPI count (1, 2, 4, 8, 16, 30)
+#   Bars: Test A (blue), Test B (orange), Test C (green)
+#   Purpose: "We save energy with dynamic scaling"
+#
+# GRAPH 2: Grouped Bar — Execution Time (s) per Test
+#   X-axis: MPI count
+#   Bars: Test A, B, C
+#   Purpose: "Without slowing down" (bars should be similar height)
+#
+# GRAPH 3: Line Chart — Energy Savings (%) vs MPI Count
+#   Lines: (A-C)/A*100, (B-C)/B*100
+#   Purpose: "Savings scale with parallelism"
+#
+# GRAPH 4: Bar — Average Power (W) per Test
+#   X-axis: MPI count (pick one, e.g. 16)
+#   Bars: Test A, B, C
+#   Purpose: "Lower power draw during comm/IO phases"
+#
+# === TEST D GRAPHS (Proves Dynamic > Fixed) ===
+#
+# GRAPH 5: Line Chart — Energy vs Frequency (Test D)
+#   X-axis: Frequency (1200, 1600, 2000, 2400 MHz)
+#   Y-axis: Energy (J)
+#   One line per MPI count (or pick N=16)
+#   Add Test C as a horizontal dashed line
+#   Purpose: "Test C achieves low-freq energy at high-freq speed"
+#
+# GRAPH 6: Line Chart — Time vs Frequency (Test D)
+#   Same as Graph 5 but Y-axis = execution time
+#   Add Test C as a horizontal dashed line
+#   Purpose: "Fixed low freq is slow; Test C is not"
+#
+# GRAPH 7: Scatter Plot — Energy vs Time Tradeoff
+#   X-axis: Execution Time (s)
+#   Y-axis: Energy (J)
+#   Points: Each Test D frequency + Test A + Test B + Test C
+#   Purpose: "Test C is in the ideal bottom-left corner"
+#
+# === OVERHEAD GRAPHS ===
+#
+# GRAPH 8: Bar — Comm Phase Overhead (A vs B)
+#   X-axis: MPI count
+#   Y-axis: (B_time - A_time) / A_time * 100 (% overhead)
+#   Purpose: "Adding comm phase has minimal overhead"
+#
+# GRAPH 9: Bar — Controller Overhead (B vs C execution time)
+#   X-axis: MPI count
+#   Y-axis: Time (s) for B vs C
+#   Purpose: "Controller doesnt slow down execution"
+#
+# === SCALING GRAPHS ===
+#
+# GRAPH 10: Line Chart — Strong Scaling (Performance vs MPI Count)
+#   X-axis: MPI count (1, 2, 4, 8, 16, 30)
+#   Y-axis: Performance metric (from PERF_SUMMARY)
+#   Lines: A, B, C
+#   Purpose: "All tests scale similarly"
+#
+# GRAPH 11: Line Chart — Energy Efficiency (Performance/Watt)
+#   X-axis: MPI count
+#   Y-axis: Performance / Avg_Power
+#   Lines: A, B, C
+#   Purpose: "Test C is the most energy-efficient"
+#
+# === STATISTICAL GRAPHS (Impress the Prof) ===
+#
+# GRAPH 12: Box Plot — Energy Distribution per Test
+#   X-axis: Test (A, B, C) at a fixed MPI count (e.g., 16)
+#   Y-axis: Energy (J) — shows median, quartiles, outliers
+#   Purpose: "Our results are statistically significant"
+#
+# GRAPH 13: Box Plot — Time Distribution per Test
+#   Same as Graph 12 but Y-axis = Time
+#   Purpose: "Consistent performance"
+#
+# === DETAILED BREAKDOWN GRAPHS ===
+#
+# GRAPH 14: Stacked Bar — Time Breakdown per Test
+#   X-axis: Test (A, B, C)
+#   Y-axis: Time (s), stacked as t_force + t_neigh + t_comm + t_other
+#   Purpose: "Where does the time go?"
+#
+# GRAPH 15: Stacked Bar — Dynamic vs Idle Energy
+#   X-axis: Test (A, B, C, D@1200, D@1600, D@2000, D@2400)
+#   Y-axis: Energy (J), stacked: dynamic (color) + idle (gray)
+#   Purpose: "Freq scaling reduces dynamic energy specifically"
+#
+# GRAPH 16: Bar — Controller Phase Transitions (Test C only)
+#   X-axis: MPI count
+#   Y-axis: Number of transitions
+#   Purpose: "Controller is actively managing frequencies"
+#
+# === BONUS GRAPH ===
+#
+# GRAPH 17: Heatmap — Energy at Each (MPI count × Frequency) for Test D
+#   X-axis: Frequency
+#   Y-axis: MPI count
+#   Color intensity: Energy (J)
+#   Purpose: "Visual overview of the entire frequency-scaling landscape"
+#
+# ============================================================
+
+
+# Ignored this command:
+# >>> Uncomment the ONE matching your controller. Example for comm_freq_controller:
+# TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+#echo "  Transitions: $TRANSITIONS"

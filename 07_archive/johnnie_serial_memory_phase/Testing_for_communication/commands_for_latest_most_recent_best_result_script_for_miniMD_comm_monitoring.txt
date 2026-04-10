@@ -1,0 +1,15 @@
+# basic usage (only this command works, but in terms of running it it is more so we have to manually change the mpi rank to different numbers by ourselves (4, 8, 16, 32, etc.)
+# whenever we run this command, it automatically runs everything by itself from running miniMD to detecting miniMD and then monitoring it. 
+# Not about waiting for miniMD to run now!
+python3 latest_most_recent_best_result_script_for_miniMD_comm_monitoring.py
+
+
+# JUST TESTED OTHER COMMANDS BELOW ARE USELESS (DON'T WORK)
+# specify rank count
+python3 latest_most_recent_best_result_script_for_miniMD_comm_monitoring.py -n 4
+
+# custom command
+python3 latest_most_recent_best_result_script_for_miniMD_comm_monitoring.py -c "mpirun -np 8 ./miniMD_openmpi -i in.lj.miniMD"
+
+# monitor existing process
+python3 latest_most_recent_best_result_script_for_miniMD_comm_monitoring.py --no-run

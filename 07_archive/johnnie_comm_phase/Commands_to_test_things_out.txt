@@ -1,0 +1,83 @@
+here is the info on github:
+
+# Note that for any comm_freq_controller.py part can be substituted with integrated_freq_controller.py
+
+# Step 1
+ssh frnt115
+
+# Step 2
+# then nano a bunch of files 
+
+# Step 3
+make openmpi -j 8
+
+# Step 4
+# Pick your worker count (e.g., 16):
+# Please add --time:1:00:00 (can change later) or else it will occupy the entire node for a long time
+salloc --nodes=1 --partition=gpu-rgrant --constraint=lkb \
+       --ntasks=16 --cpus-per-task=1 --exclusive
+
+
+# Step 5: Run it (choose a test below: A/B/C)
+# Test A — Baseline (no optimization, everything at max freq):
+mpirun -np 16 --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD --comm_phase 0
+
+
+# Test B — Communication phase ON (still all at max freq, just to see it works):
+# Test B run at the max frequency possible
+mpirun -np 16 --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD
+
+
+# Test C — Communication phase ON + frequency controller (the actual optimization):
+# Test C run at (2.0 GHz compute + 1.2 GHz during I/O or communication)
+# Terminal 1: start the controller on core 30
+taskset -c 30 python3 comm_freq_controller.py --workers 16
+# Terminal 2: run miniMD
+mpirun -np 16 --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD
+
+----------------------------------------------------------------------------------------------------------------------------------------------------------
+# BUT NOTE THAT for Test A&C:
+
+# Before the run:
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# Run miniMD... using the commands above for Test A or Test C
+
+# After:
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+echo "Energy: $(( (AFTER - BEFORE) / 1000000 )) Joules"
+
+
+-----------------------------------------------------------------------------------------------------------------------------------------------------------
+# NOTE THAT FOR TEST B (for wraparound, so we can compare the energy with Test A and Test C properly):
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+mpirun -np 16 --bind-to core ./miniMD_openmpi -i in.lj.miniMD
+
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+DIFF=$(( AFTER - BEFORE ))
+if [ $DIFF -lt 0 ]; then
+    DIFF=$(( DIFF + MAX_RANGE ))
+fi
+echo "Energy: $(( DIFF / 1000000 )) Joules"
+
+
+-------------------------------------------------------------------------------------------------------------------------------------------------------------
+# NOTE THAT IF WE RUN TEST C first or if you want to run other tests other than Test C after running Test C, please run the followingg first:
+# BUT I would recommend running the following after you run each Test A/B/C
+# Reset all 16 worker cores to performance governor (full speed ~3.4 GHz)
+# Can be any number of workers (# of workers refer to the number of MPI ranks/MPI processes)
+# 15 here is the number of MPI processes/ranks - 1
+for c in $(seq 0 15); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# Verify:
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~3400000 (not 2000000)

@@ -1,0 +1,19 @@
+# 1. Allocate node
+salloc --nodes=1 --partition=gpu-rgrant --time=30:00 --constraint=lkb
+
+
+source ~/minife-env/bin/activate
+
+
+# 3. Set up the environment
+./setup_test_environment_hpc.sh
+
+# 4. Run memory-bound tests
+./memory_bound_phase_test_hpc.sh
+
+# 5. Run serial computation tests  
+./serial_computation_phase_test.sh
+
+# 6. Check results
+ls -la results/
+
