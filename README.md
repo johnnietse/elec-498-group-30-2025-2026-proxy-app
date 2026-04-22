@@ -17,7 +17,6 @@ This workspace uses a professional, corporate-level directory structure to ensur
 
 | Directory | Purpose |
 |---|---|
-| 📁 `01_docs/` | Formal deliverables, guides, blueprints, and the final report. |
 | 📁 `02_src/` | Modified C++ source code for miniMD (instrumented with phase hints). |
 | 📁 `03_scripts/` | Execution pipelines, controllers (`comm_freq_controller.py`), and SLURM orchestration. |
 | 📁 `04_configs/` | Parameter definitions and build environment setups. |
