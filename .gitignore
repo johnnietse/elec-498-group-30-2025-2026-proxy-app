@@ -10,3 +10,4 @@ __pycache__/
 *checkpoint*/
 large_files.txt
 push_log.txt
+00_architecture_docs/
