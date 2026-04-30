@@ -199,9 +199,6 @@ stateDiagram-v2
 ```
 ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 ├── 00_architecture_docs/    [NEW] Software architecture documentation
-├── 01_docs/                 Formal reports, guides, and reference materials
-│   ├── reports/             Final capstone reports (ELEC 490 Reports 1 & 2)
-│   └── guides/              Testing guides and command references
 ├── 02_src/                  Production source code (curated final versions)
 │   ├── comm_phase_version/  C++ source with communication phase (Johnnie)
 │   ├── mpi_comm_version/    C++ source with MPI comm + shared-memory hints (Zane)
@@ -242,16 +239,6 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 
 ---
 
-## 8. Team Responsibility Matrix
-
-| Team Member | Phase | Key Contributions |
-|-------------|-------|-------------------|
-| **Johnnie Tse** | Communication Phase | `integrate.cpp` comm phase injection, `comm_freq_controller.py`, batch tests, data analysis, workspace reorganization |
-| **Gia Lee** | I/O (Storage) Phase | `integrate.cpp` sustained I/O checkpoint, `monitoring.py`, per-rank scaling |
-| **Zane Prance** | MPI Communication | `mon.py` phase-aware controller, `dashboard.py` TUI, shared-memory protocol, `bridge_to_dashboard.py`, beta-adaptation algorithm |
-| **Valerie So** | I/O Benchmarking | `val_testing/` benchmark suite, multi-core I/O scaling scripts, baseline measurements |
-
----
 
 ## 9. Security and Access Model
 
@@ -1401,7 +1388,6 @@ bash launch_demo.sh
 | 8 | `-np 8` | `taskset -c 4-11` | 8 ranks |
 | 16 | `-np 16` | `taskset -c 4-19` | 16 ranks (max power-of-2) |
 | 26 | `-np 26` | `taskset -c 4-29` | 26 ranks (typical demo) |
-| 30 | `-np 30` | `taskset -c 0-29` | 30 ranks (absolute max) |
 
 ### 3.4 CLI Flags (miniMD)
 
