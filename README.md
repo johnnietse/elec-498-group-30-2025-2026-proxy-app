@@ -192,9 +192,6 @@ stateDiagram-v2
 ```
 ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 ├── 00_architecture_docs/    [NEW] Software architecture documentation
-├── 01_docs/                 Formal reports, guides, and reference materials
-│   ├── reports/             Final capstone reports (ELEC 490 Reports 1 & 2)
-│   └── guides/              Testing guides and command references
 ├── 02_src/                  Production source code (curated final versions)
 │   ├── comm_phase_version/  C++ source with communication phase (Johnnie)
 │   ├── mpi_comm_version/    C++ source with MPI comm + shared-memory hints (Zane)
@@ -232,17 +229,6 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 ├── large_files.txt          Registry of files exceeding Git's size limit
 └── push_log.txt             Git push operation logs
 ```
-
----
-
-## 8. Team Responsibility Matrix
-
-| Team Member | Phase | Key Contributions |
-|-------------|-------|-------------------|
-| **Johnnie Tse** | Communication Phase | `integrate.cpp` comm phase injection, `comm_freq_controller.py`, batch tests, data analysis, workspace reorganization |
-| **Gia Lee** | I/O (Storage) Phase | `integrate.cpp` sustained I/O checkpoint, `monitoring.py`, per-rank scaling |
-| **Zane Prance** | MPI Communication | `mon.py` phase-aware controller, `dashboard.py` TUI, shared-memory protocol, `bridge_to_dashboard.py`, beta-adaptation algorithm |
-| **Valerie So** | I/O Benchmarking | `val_testing/` benchmark suite, multi-core I/O scaling scripts, baseline measurements |
 
 ---
 
@@ -288,7 +274,6 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 
 | Document | Coverage |
 |----------|----------|
-| [01_docs_directory.md](01_docs_directory.md) | Formal reports and testing guides |
 | [02_src_directory.md](02_src_directory.md) | Source code deep-dive, class hierarchy, API reference |
 | [03_scripts_directory.md](03_scripts_directory.md) | Batch test scripts and cluster job automation |
 | [04_configs_directory.md](04_configs_directory.md) | Configuration files and simulation parameters |
