@@ -1,11 +1,10 @@
 # System Architecture Document
 
 **Project:** miniMD Phase-Aware DVFS Optimization  
-**Course:** ELEC 490/498 Capstone — Group 30  
+**Course:** ELEC 490/498 Capstone - Group 30  
 **Authors:** Johnnie Tse, Gia Lee, Zane Prance, Valerie So  
 **Supervisor:** Dr. Ryan Grant  
 **Platform:** CAC Frontenac HPC Cluster (AMD EPYC 7551P, 32 cores)  
-**Last Updated:** 2026-04-22  
 
 ---
 
