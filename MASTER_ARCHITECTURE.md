@@ -210,15 +210,6 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 │   ├── cluster_jobs/        SLURM job submission and environment setup
 │   └── setup/               Environment setup scripts (placeholder)
 ├── 04_configs/              Configuration files and simulation inputs
-├── 05_data/                 [UNTRACKED] Telemetry dumps and experimental results (local only)
-│   ├── raw_results/         Unprocessed hardware measurement logs
-│   ├── processed/           Extracted and cleaned datasets
-│   ├── synthetic/           Generated synthetic datasets
-│   └── misc/                Git diffs, pull results
-├── 06_outputs/              [UNTRACKED] Analytics, figures, and generated reports (local only)
-│   ├── 02_performance_analysis_sweep/  Frequency scaling study
-│   ├── final_figures/       Publication-quality figures (fig01–fig14)
-│   └── supplementary_plots/ Supporting visualizations (plot01–plot13)
 ├── 07_archive/              Deprecated prototypes and historical branches
 │   ├── johnnie_comm_phase/  Communication phase optimization (primary)
 │   ├── johnnie_serial_memory_phase/  Serial/memory phase exploration
@@ -285,8 +276,6 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 | [02_src_directory.md](02_src_directory.md) | Source code deep-dive, class hierarchy, API reference |
 | [03_scripts_directory.md](03_scripts_directory.md) | Batch test scripts and cluster job automation |
 | [04_configs_directory.md](04_configs_directory.md) | Configuration files and simulation parameters |
-| [05_data_directory.md](05_data_directory.md) | [UNTRACKED] Raw telemetry, processed data, synthetic datasets |
-| [06_outputs_directory.md](06_outputs_directory.md) | [UNTRACKED] Performance reports, figures, supplementary plots |
 | [07_archive_branches.md](07_archive_branches.md) | All 8 archived development branches |
 | [08_test_gui_directory.md](08_test_gui_directory.md) | Dashboard implementations |
 | [09_data_flow_and_ipc.md](09_data_flow_and_ipc.md) | Shared-memory protocol specification |
