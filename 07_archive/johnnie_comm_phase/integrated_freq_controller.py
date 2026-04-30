@@ -64,7 +64,7 @@ PHASE_POLL_INTERVAL = 0.05 # 50ms for phase marker polling
 # Core constraints
 RESERVED_CORE = 31  # HPC maintenance — NO permission to change freq
 MONITOR_CORE = 30   # Dedicated for this controller
-VALID_WORKER_COUNTS = [1, 2, 4, 8, 16, 30]
+VALID_WORKER_COUNTS = [1, 2, 4, 8, 16, 26]
 
 # perf binary
 PERF_BIN = os.environ.get("PERF_BIN", "perf")
