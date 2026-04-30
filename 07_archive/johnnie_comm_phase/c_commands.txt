@@ -1,0 +1,115 @@
+
+# ====================
+# STEP 4: TEST C — COMM PHASE ON + FREQUENCY CONTROLLER
+# ====================
+# Purpose: The actual optimization. Dynamic frequency scaling.
+# Graph: C vs A = total impact. C vs B = freq control savings.
+#
+# REQUIRES TWO TERMINALS (or use & to background the controller).
+
+# REPEAT FOR EACH MPI COUNT: 1, 2, 4, 8, 16, 30
+# REPEAT FOR EACH RUN: 1 to 25
+
+# 1. Kill ANY leftover controllers from previous runs
+pkill -f freq_controller
+
+# 2. Set NUM_WORKERS and RUN
+# NUM_WORKERS=30
+# RUN=5
+NUM_WORKERS=16
+RUN=10
+
+# 4a. Clean phase marker
+rm -f phase_marker.txt
+
+# 4b. Reset governors first (controller will take over)
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+
+# 3. Verify clean state
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+
+# 4c. Start frequency controller in background on core 30
+#     Use python3 -u for UNBUFFERED output (prevents empty log on kill)
+#     NOTE: Can substitute comm_freq_controller.py with integrated_freq_controller.py
+
+
+taskset -c 30 python3 -u comm_freq_controller.py --workers $NUM_WORKERS \
+    > /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>&1 &
+CTRL_PID=$!
+echo "Controller PID: $CTRL_PID"
+sleep 3  # wait for controller to initialize
+
+
+# 4c-verify. Confirm controller is alive and producing output
+if ! kill -0 $CTRL_PID 2>/dev/null; then
+    echo "ERROR: Controller crashed during startup!"
+    echo "--- Controller log ---"
+    cat /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+    echo "--- End log ---"
+    echo "Fix the issue before proceeding."
+else
+    echo "Controller is running (PID $CTRL_PID)"
+    head -5 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+fi
+
+# Verify it's alive and shows 2400 MHz
+head -8 /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log
+# Should show: "Freq HIGH: 2400 MHz" (NOT 2000!)
+
+
+# 4d. Read energy BEFORE
+MAX_RANGE=$(cat /sys/class/powercap/intel-rapl:0/max_energy_range_uj)
+BEFORE=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+
+# 4e. Run miniMD — comm phase ENABLED (this is for comm_freq_controller.py):
+mpirun -np $NUM_WORKERS --bind-to core \
+    ./miniMD_openmpi -i in.lj.miniMD \
+    2>&1 | tee /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+
+
+
+# 4f. Read energy AFTER
+AFTER=$(cat /sys/class/powercap/intel-rapl:0/energy_uj)
+DIFF=$(( AFTER - BEFORE ))
+if [ $DIFF -lt 0 ]; then DIFF=$(( DIFF + MAX_RANGE )); fi
+ENERGY_J=$(echo "scale=3; $DIFF / 1000000" | bc -l)
+echo "Test C | N=$NUM_WORKERS | Run $RUN | Energy: $ENERGY_J J"
+
+# 4g. Stop controller
+sleep 1
+kill $CTRL_PID 2>/dev/null
+wait $CTRL_PID 2>/dev/null || true
+
+# 4h. Count phase transitions from controller log
+
+# FOR comm_freq_controller.py (Test C):
+TRANSITIONS=$(grep -c "Phase transition:" /tmp/ctrl_c_${NUM_WORKERS}_${RUN}.log 2>/dev/null || echo "0")
+echo "  Transitions: $TRANSITIONS"
+
+
+
+# 4i. Parse timing
+grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log
+
+# 4j. CRITICAL: Reset governors back to performance
+for c in $(seq 0 $((NUM_WORKERS - 1))); do
+    echo "performance" > /sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor
+done
+
+# Verify reset worked
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+# Should say: performance
+cat /sys/devices/system/cpu/cpu0/cpufreq/scaling_cur_freq
+# Should say: ~2400000
+
+# 4k. Auto-parse PERF_SUMMARY and record to CSV
+# This is for comm_freq_controller.py:
+PERF_LINE=$(grep "PERF_SUMMARY" /tmp/test_c_${NUM_WORKERS}_${RUN}.log | head -1)
+echo "$RUN,$NUM_WORKERS,$ENERGY_J,$(echo "$PERF_LINE" | awk '{print $5","$6","$7","$8","$9","$10}'),$TRANSITIONS" >> results_manual_test_c.csv
+
+
+sleep 2

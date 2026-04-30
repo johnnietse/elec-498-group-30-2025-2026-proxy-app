@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.log
+*.bin
+*.pt
+*.h5
+*.npy
+*checkpoint*/
+large_files.txt
+push_log.txt
+00_architecture_docs/
+01_docs/

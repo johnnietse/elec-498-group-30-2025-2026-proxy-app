@@ -1,0 +1,2378 @@
+==========================================
+Full Checkpoint Frequency Experiment
+Cores: 2
+Job ID: 3121348
+Node: frnt201.frontenac.local
+Date: Sun Feb 15 10:15:30 PM EST 2026
+==========================================
+Found monitoring script: monitoring_enhanced.py (enhanced)
+Using /lscratch: /lscratch/slurm-job-3121348-1/chk
+Symlink check:
+lrwxrwxrwx. 1 hpc6084 hpc6084 33 Feb 15 22:15 chk -> /lscratch/slurm-job-3121348-1/chk
+
+CPU Frequency Information:
+  Model: Intel(R) Xeon(R) Gold 6430
+  Total Cores: 1
+  Available Range: 800 - 3400 MHz
+  Current Frequency: 3174 MHz
+  Governor: performance
+
+WARNING: Cannot write to CPU frequency files!
+You may need sudo/root privileges to change CPU frequencies
+Proceeding anyway - frequencies may not actually change
+
+
+==========================================
+Starting Experiments: 5 runs per frequency
+==========================================
+
+######################################################
+# Testing 1.2 GHz - Run 1/5
+######################################################
+
+######################################################
+# Testing 1.6 GHz - Run 1/5
+######################################################
+
+######################################################
+# Testing 2.0 GHz - Run 1/5
+######################################################
+
+######################################################
+# Testing 1.2 GHz - Run 2/5
+######################################################
+
+######################################################
+# Testing 1.6 GHz - Run 2/5
+######################################################
+
+######################################################
+# Testing 2.0 GHz - Run 2/5
+######################################################
+
+######################################################
+# Testing 1.2 GHz - Run 3/5
+######################################################
+
+######################################################
+# Testing 1.6 GHz - Run 3/5
+######################################################
+
+######################################################
+# Testing 2.0 GHz - Run 3/5
+######################################################
+Traceback (most recent call last):
+  File "/global/home/hpc6084/miniMD/ref/monitoring_enhanced.py", line 186, in <module>
+    cur = read_proc_io(pid)
+          ^^^^^^^^^^^^^^^^^
+  File "/global/home/hpc6084/miniMD/ref/monitoring_enhanced.py", line 53, in read_proc_io
+    txt = p.read_text()
+          ^^^^^^^^^^^^^
+  File "/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/lib/python3.11/pathlib.py", line 1058, in read_text
+    with self.open(mode='r', encoding=encoding, errors=errors) as f:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/cvmfs/soft.computecanada.ca/gentoo/2023/x86-64-v3/usr/lib/python3.11/pathlib.py", line 1044, in open
+    return io.open(self, mode, buffering, encoding, errors, newline)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+PermissionError: [Errno 13] Permission denied: '/proc/998307/io'
+
+######################################################
+# Testing 1.2 GHz - Run 4/5
+######################################################
+
+######################################################
+# Testing 1.6 GHz - Run 4/5
+######################################################
+
+######################################################
+# Testing 2.0 GHz - Run 4/5
+######################################################
+
+######################################################
+# Testing 1.2 GHz - Run 5/5
+######################################################
+
+######################################################
+# Testing 1.6 GHz - Run 5/5
+######################################################
+
+######################################################
+# Testing 2.0 GHz - Run 5/5
+######################################################
+Resetting CPU frequencies to default...
+
+==========================================
+EXPERIMENT COMPLETE
+==========================================
+
+Results for 1.2 GHz:
+Run,Time_Sec,Energy_J,Power_W,Checkpoint_MB,Avg_Freq_MHz,Min_Freq_MHz,Max_Freq_MHz,IO_Detected,Num_Files
+
+==========================================
+Frequency: 1200MHz | Run: 1/5
+==========================================
+Setting all cores to 1200MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3341 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 71910159903 uJ
+  CPU Frequency: 3406 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.04 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.06 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.21 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000141 0.000000 0.000000 0.000000 2.000141 524251069.657650 262125534.828825 PERF_SUMMARY 0.000000
+
+
+[startup] ENHANCED: I/O phase detection + CPU frequency monitoring
+[startup] pattern=miniMD_openmpi, interval=0.2s
+[startup] RAPL=on
+[startup] CPU Frequency=on
+[startup] I/O threshold: 0.52 MB/s
+[startup] Ignoring I/O detections in first 5.0s
+[startup] Checkpoint min duration: 30.0s
+[startup] Exit timeout: 2.0s after min duration
+[startup] Checkpoint directory: ./chk
+[startup] logging to storage_io_phaseA.csv
+[startup] waiting for MiniMD to launch...
+[run] MiniMD detected — ranks=1
+[run] Initial CPU frequency: 3222 MHz
+[run] CPU Governor: performance
+[PHASE] Entered CHECKPOINT_IO at t=5.12s, freq=3400MHz
+[hb] t=5.12s wchar=20.49 MB/s phase=CHECKPOINT_IO ckpt_t=0.0s ckpt_MB=0.0 P=149.91W freq=3400MHz
+[hb] t=10.24s wchar=20.49 MB/s phase=CHECKPOINT_IO ckpt_t=5.1s ckpt_MB=107.0 P=156.97W freq=3400MHz
+[hb] t=15.36s wchar=20.50 MB/s phase=CHECKPOINT_IO ckpt_t=10.2s ckpt_MB=213.9 P=154.21W freq=3400MHz
+[hb] t=20.49s wchar=20.45 MB/s phase=CHECKPOINT_IO ckpt_t=15.4s ckpt_MB=320.9 P=138.03W freq=3400MHz
+[hb] t=25.61s wchar=20.43 MB/s phase=CHECKPOINT_IO ckpt_t=20.5s ckpt_MB=427.8 P=119.88W freq=3400MHz
+[hb] t=30.74s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=25.6s ckpt_MB=534.8 P=153.91W freq=3397MHz
+[stop] MiniMD finished — exiting.
+
+============================================================
+MONITORING SUMMARY
+============================================================
+
+Overall CPU Frequency:
+  Average: 3395 MHz
+  Min: 3087 MHz
+  Max: 3402 MHz
+  Samples: 164
+
+Compute Phase Frequency:
+  Average: 3380 MHz
+  Samples: 24
+
+I/O Phase Frequency:
+  Average: 3398 MHz
+  Min: 3278 MHz
+  Max: 3402 MHz
+  Samples: 139
+
+============================================================
+CHECKPOINT DIRECTORY: ./chk
+============================================================
+lrwxrwxrwx. 1 hpc6084 hpc6084 33 Feb 15 22:15 ./chk -> /lscratch/slurm-job-3121348-1/chk
+
+Total size: 512	./chk
+Number of files: 2
+Total: 674.00 MB
+
+============================================================
+Monitoring data saved to: storage_io_phaseA.csv
+============================================================
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5116.196 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3399 MHz
+    Min: 3390 MHz
+    Max: 3406 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:16 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:16 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1200MHz_run1_3121348/
+
+Summary: 0s, 5116.196J, 0W, 674.00MB, Freq: 3399/3390/3406 MHz, I/O: YES
+1,0,5116.196,0,674.00,3399,3390,3406,YES,2
+
+==========================================
+Frequency: 1200MHz | Run: 2/5
+==========================================
+Setting all cores to 1200MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3402 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 90475849069 uJ
+  CPU Frequency: 3403 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.04 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.11 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.19 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000152 0.000000 0.000000 0.000000 2.000152 524248104.981333 262124052.490667 PERF_SUMMARY 0.000000
+
+
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5461.156 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3385 MHz
+    Min: 3305 MHz
+    Max: 3404 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:18 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:18 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1200MHz_run2_3121348/
+
+Summary: 0s, 5461.156J, 0W, 674.00MB, Freq: 3385/3305/3404 MHz, I/O: YES
+2,0,5461.156,0,674.00,3385,3305,3404,YES,2
+
+==========================================
+Frequency: 1200MHz | Run: 3/5
+==========================================
+Setting all cores to 1200MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3402 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 109060000651 uJ
+  CPU Frequency: 3403 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.03 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.08 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.20 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000140 0.000000 0.000000 0.000000 2.000140 524251314.203661 262125657.101830 PERF_SUMMARY 0.000000
+
+
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5402.860 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3386 MHz
+    Min: 3233 MHz
+    Max: 3404 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:20 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:20 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1200MHz_run3_3121348/
+
+Summary: 0s, 5402.860J, 0W, 674.00MB, Freq: 3386/3233/3404 MHz, I/O: YES
+3,0,5402.860,0,674.00,3386,3233,3404,YES,2
+
+==========================================
+Frequency: 1200MHz | Run: 4/5
+==========================================
+Setting all cores to 1200MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3402 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 127780110321 uJ
+  CPU Frequency: 3400 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.03 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.05 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.22 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000137 0.000000 0.000000 0.000000 2.000137 524252202.486858 262126101.243429 PERF_SUMMARY 0.000000
+
+
+[startup] ENHANCED: I/O phase detection + CPU frequency monitoring
+[startup] pattern=miniMD_openmpi, interval=0.2s
+[startup] RAPL=on
+[startup] CPU Frequency=on
+[startup] I/O threshold: 0.52 MB/s
+[startup] Ignoring I/O detections in first 5.0s
+[startup] Checkpoint min duration: 30.0s
+[startup] Exit timeout: 2.0s after min duration
+[startup] Checkpoint directory: ./chk
+[startup] logging to storage_io_phaseA.csv
+[startup] waiting for MiniMD to launch...
+[run] MiniMD detected — ranks=1
+[run] Initial CPU frequency: 3312 MHz
+[run] CPU Governor: performance
+[PHASE] Entered CHECKPOINT_IO at t=5.12s, freq=3403MHz
+[hb] t=5.12s wchar=20.40 MB/s phase=CHECKPOINT_IO ckpt_t=0.0s ckpt_MB=0.0 P=157.45W freq=3403MHz
+[hb] t=10.24s wchar=20.47 MB/s phase=CHECKPOINT_IO ckpt_t=5.1s ckpt_MB=107.0 P=149.41W freq=3404MHz
+[hb] t=15.36s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=10.2s ckpt_MB=213.9 P=126.83W freq=3401MHz
+[hb] t=20.49s wchar=20.47 MB/s phase=CHECKPOINT_IO ckpt_t=15.4s ckpt_MB=320.9 P=151.61W freq=3402MHz
+[hb] t=25.61s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=20.5s ckpt_MB=427.8 P=146.93W freq=3403MHz
+[hb] t=30.73s wchar=20.47 MB/s phase=CHECKPOINT_IO ckpt_t=25.6s ckpt_MB=534.8 P=141.10W freq=3404MHz
+[stop] MiniMD finished — exiting.
+
+============================================================
+MONITORING SUMMARY
+============================================================
+
+Overall CPU Frequency:
+  Average: 3397 MHz
+  Min: 3209 MHz
+  Max: 3404 MHz
+  Samples: 164
+
+Compute Phase Frequency:
+  Average: 3385 MHz
+  Samples: 24
+
+I/O Phase Frequency:
+  Average: 3399 MHz
+  Min: 3334 MHz
+  Max: 3404 MHz
+  Samples: 139
+
+============================================================
+CHECKPOINT DIRECTORY: ./chk
+============================================================
+lrwxrwxrwx. 1 hpc6084 hpc6084 33 Feb 15 22:15 ./chk -> /lscratch/slurm-job-3121348-1/chk
+
+Total size: 512	./chk
+Number of files: 2
+Total: 674.00 MB
+
+============================================================
+Monitoring data saved to: storage_io_phaseA.csv
+============================================================
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5278.834 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3392 MHz
+    Min: 3167 MHz
+    Max: 3404 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:22 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:22 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1200MHz_run4_3121348/
+
+Summary: 0s, 5278.834J, 0W, 674.00MB, Freq: 3392/3167/3404 MHz, I/O: YES
+4,0,5278.834,0,674.00,3392,3167,3404,YES,2
+
+==========================================
+Frequency: 1200MHz | Run: 5/5
+==========================================
+Setting all cores to 1200MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3400 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 146473078152 uJ
+  CPU Frequency: 3403 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.03 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.14 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.18 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000143 0.000000 0.000000 0.000000 2.000143 524250605.204330 262125302.602165 PERF_SUMMARY 0.000000
+
+
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5381.052 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3396 MHz
+    Min: 3221 MHz
+    Max: 3404 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:24 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:24 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1200MHz_run5_3121348/
+
+Summary: 0s, 5381.052J, 0W, 674.00MB, Freq: 3396/3221/3404 MHz, I/O: YES
+5,0,5381.052,0,674.00,3396,3221,3404,YES,2
+
+Averages:
+  Time: 37.26 s
+  Energy: 37.26 J
+  Power: 4.71 W
+  Checkpoint: 4.71 MB
+  Freq (Avg/Min/Max): 24 / 23 / 24 MHz
+  Runs completed: 715
+
+Results for 1.6 GHz:
+Run,Time_Sec,Energy_J,Power_W,Checkpoint_MB,Avg_Freq_MHz,Min_Freq_MHz,Max_Freq_MHz,IO_Detected,Num_Files
+
+==========================================
+Frequency: 1600MHz | Run: 1/5
+==========================================
+Setting all cores to 1600MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3402 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 77847737049 uJ
+  CPU Frequency: 3403 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.03 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.05 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.22 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000132 0.000000 0.000000 0.000000 2.000132 524253407.925259 262126703.962629 PERF_SUMMARY 0.000000
+
+
+[startup] ENHANCED: I/O phase detection + CPU frequency monitoring
+[startup] pattern=miniMD_openmpi, interval=0.2s
+[startup] RAPL=on
+[startup] CPU Frequency=on
+[startup] I/O threshold: 0.52 MB/s
+[startup] Ignoring I/O detections in first 5.0s
+[startup] Checkpoint min duration: 30.0s
+[startup] Exit timeout: 2.0s after min duration
+[startup] Checkpoint directory: ./chk
+[startup] logging to storage_io_phaseA.csv
+[startup] waiting for MiniMD to launch...
+[run] MiniMD detected — ranks=1
+[run] Initial CPU frequency: 3362 MHz
+[run] CPU Governor: performance
+[PHASE] Entered CHECKPOINT_IO at t=5.13s, freq=3400MHz
+[hb] t=5.13s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=0.0s ckpt_MB=0.0 P=156.93W freq=3400MHz
+[hb] t=10.26s wchar=20.47 MB/s phase=CHECKPOINT_IO ckpt_t=5.1s ckpt_MB=107.0 P=145.80W freq=3400MHz
+[hb] t=15.38s wchar=20.43 MB/s phase=CHECKPOINT_IO ckpt_t=10.3s ckpt_MB=213.9 P=145.57W freq=3403MHz
+[hb] t=20.51s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=15.4s ckpt_MB=320.9 P=150.63W freq=3402MHz
+[hb] t=25.63s wchar=20.47 MB/s phase=CHECKPOINT_IO ckpt_t=20.5s ckpt_MB=427.8 P=156.88W freq=3404MHz
+[hb] t=30.76s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=25.6s ckpt_MB=534.8 P=151.92W freq=3403MHz
+[stop] MiniMD finished — exiting.
+
+============================================================
+MONITORING SUMMARY
+============================================================
+
+Overall CPU Frequency:
+  Average: 3396 MHz
+  Min: 2878 MHz
+  Max: 3404 MHz
+  Samples: 164
+
+Compute Phase Frequency:
+  Average: 3390 MHz
+  Samples: 24
+
+I/O Phase Frequency:
+  Average: 3396 MHz
+  Min: 2878 MHz
+  Max: 3404 MHz
+  Samples: 139
+
+============================================================
+CHECKPOINT DIRECTORY: ./chk
+============================================================
+lrwxrwxrwx. 1 hpc6084 hpc6084 33 Feb 15 22:15 ./chk -> /lscratch/slurm-job-3121348-1/chk
+
+Total size: 512	./chk
+Number of files: 2
+Total: 674.00 MB
+
+============================================================
+Monitoring data saved to: storage_io_phaseA.csv
+============================================================
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5355.980 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3395 MHz
+    Min: 3053 MHz
+    Max: 3404 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:16 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:16 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1600MHz_run1_3121348/
+
+Summary: 0s, 5355.980J, 0W, 674.00MB, Freq: 3395/3053/3404 MHz, I/O: YES
+1,0,5355.980,0,674.00,3395,3053,3404,YES,2
+
+==========================================
+Frequency: 1600MHz | Run: 2/5
+==========================================
+Setting all cores to 1600MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3402 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 96732020859 uJ
+  CPU Frequency: 3402 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.03 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.11 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.19 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000148 0.000000 0.000000 0.000000 2.000148 524249137.149340 262124568.574670 PERF_SUMMARY 0.000000
+
+
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5346.131 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3395 MHz
+    Min: 3185 MHz
+    Max: 3403 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:18 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:18 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1600MHz_run2_3121348/
+
+Summary: 0s, 5346.131J, 0W, 674.00MB, Freq: 3395/3185/3403 MHz, I/O: YES
+2,0,5346.131,0,674.00,3395,3185,3403,YES,2
+
+==========================================
+Frequency: 1600MHz | Run: 3/5
+==========================================
+Setting all cores to 1600MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3394 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 115317084059 uJ
+  CPU Frequency: 3400 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.04 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.13 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.18 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000156 0.000000 0.000000 0.000000 2.000156 524247220.643571 262123610.321786 PERF_SUMMARY 0.000000
+
+
+[startup] ENHANCED: I/O phase detection + CPU frequency monitoring
+[startup] pattern=miniMD_openmpi, interval=0.2s
+[startup] RAPL=on
+[startup] CPU Frequency=on
+[startup] I/O threshold: 0.52 MB/s
+[startup] Ignoring I/O detections in first 5.0s
+[startup] Checkpoint min duration: 30.0s
+[startup] Exit timeout: 2.0s after min duration
+[startup] Checkpoint directory: ./chk
+[startup] logging to storage_io_phaseA.csv
+[startup] waiting for MiniMD to launch...
+[run] MiniMD detected — ranks=1
+[run] Initial CPU frequency: 3340 MHz
+[run] CPU Governor: performance
+[PHASE] Entered CHECKPOINT_IO at t=5.12s, freq=3400MHz
+[hb] t=5.12s wchar=20.50 MB/s phase=CHECKPOINT_IO ckpt_t=0.0s ckpt_MB=0.0 P=156.18W freq=3400MHz
+[hb] t=10.24s wchar=20.49 MB/s phase=CHECKPOINT_IO ckpt_t=5.1s ckpt_MB=107.0 P=149.17W freq=3394MHz
+[hb] t=15.36s wchar=20.49 MB/s phase=CHECKPOINT_IO ckpt_t=10.2s ckpt_MB=213.9 P=136.78W freq=3400MHz
+[hb] t=20.48s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=15.4s ckpt_MB=320.9 P=151.83W freq=3400MHz
+[hb] t=25.59s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=20.5s ckpt_MB=427.8 P=150.62W freq=3400MHz
+[hb] t=30.71s wchar=20.49 MB/s phase=CHECKPOINT_IO ckpt_t=25.6s ckpt_MB=534.8 P=135.50W freq=3400MHz
+[stop] MiniMD finished — exiting.
+
+============================================================
+MONITORING SUMMARY
+============================================================
+
+Overall CPU Frequency:
+  Average: 3395 MHz
+  Min: 3114 MHz
+  Max: 3402 MHz
+  Samples: 165
+
+Compute Phase Frequency:
+  Average: 3385 MHz
+  Samples: 24
+
+I/O Phase Frequency:
+  Average: 3397 MHz
+  Min: 3236 MHz
+  Max: 3402 MHz
+  Samples: 140
+
+============================================================
+CHECKPOINT DIRECTORY: ./chk
+============================================================
+lrwxrwxrwx. 1 hpc6084 hpc6084 33 Feb 15 22:15 ./chk -> /lscratch/slurm-job-3121348-1/chk
+
+Total size: 512	./chk
+Number of files: 2
+Total: 674.00 MB
+
+============================================================
+Monitoring data saved to: storage_io_phaseA.csv
+============================================================
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5298.775 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3396 MHz
+    Min: 3183 MHz
+    Max: 3402 MHz
+  I/O Phase Detected: YES (141 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:21 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:21 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1600MHz_run3_3121348/
+
+Summary: 0s, 5298.775J, 0W, 674.00MB, Freq: 3396/3183/3402 MHz, I/O: YES
+3,0,5298.775,0,674.00,3396,3183,3402,YES,2
+
+==========================================
+Frequency: 1600MHz | Run: 4/5
+==========================================
+Setting all cores to 1600MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3400 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 133901032517 uJ
+  CPU Frequency: 3400 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.04 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.08 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.20 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000140 0.000000 0.000000 0.000000 2.000140 524251264.665383 262125632.332691 PERF_SUMMARY 0.000000
+
+
+[startup] ENHANCED: I/O phase detection + CPU frequency monitoring
+[startup] pattern=miniMD_openmpi, interval=0.2s
+[startup] RAPL=on
+[startup] CPU Frequency=on
+[startup] I/O threshold: 0.52 MB/s
+[startup] Ignoring I/O detections in first 5.0s
+[startup] Checkpoint min duration: 30.0s
+[startup] Exit timeout: 2.0s after min duration
+[startup] Checkpoint directory: ./chk
+[startup] logging to storage_io_phaseA.csv
+[startup] waiting for MiniMD to launch...
+[run] MiniMD detected — ranks=1
+[run] Initial CPU frequency: 3072 MHz
+[run] CPU Governor: performance
+[PHASE] Entered CHECKPOINT_IO at t=5.12s, freq=3400MHz
+[hb] t=5.12s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=0.0s ckpt_MB=0.0 P=157.41W freq=3400MHz
+[hb] t=10.24s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=5.1s ckpt_MB=107.0 P=152.58W freq=3400MHz
+[hb] t=15.36s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=10.2s ckpt_MB=213.9 P=152.53W freq=3400MHz
+[hb] t=20.49s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=15.4s ckpt_MB=320.9 P=152.03W freq=3400MHz
+[hb] t=25.61s wchar=20.45 MB/s phase=CHECKPOINT_IO ckpt_t=20.5s ckpt_MB=427.8 P=135.00W freq=3382MHz
+[hb] t=30.74s wchar=20.47 MB/s phase=CHECKPOINT_IO ckpt_t=25.6s ckpt_MB=534.8 P=153.31W freq=3400MHz
+[stop] MiniMD finished — exiting.
+
+============================================================
+MONITORING SUMMARY
+============================================================
+
+Overall CPU Frequency:
+  Average: 3393 MHz
+  Min: 2762 MHz
+  Max: 3401 MHz
+  Samples: 164
+
+Compute Phase Frequency:
+  Average: 3373 MHz
+  Samples: 24
+
+I/O Phase Frequency:
+  Average: 3397 MHz
+  Min: 3340 MHz
+  Max: 3401 MHz
+  Samples: 139
+
+============================================================
+CHECKPOINT DIRECTORY: ./chk
+============================================================
+lrwxrwxrwx. 1 hpc6084 hpc6084 33 Feb 15 22:15 ./chk -> /lscratch/slurm-job-3121348-1/chk
+
+Total size: 512	./chk
+Number of files: 2
+Total: 674.00 MB
+
+============================================================
+Monitoring data saved to: storage_io_phaseA.csv
+============================================================
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5419.693 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3392 MHz
+    Min: 3210 MHz
+    Max: 3402 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:23 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:23 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1600MHz_run4_3121348/
+
+Summary: 0s, 5419.693J, 0W, 674.00MB, Freq: 3392/3210/3402 MHz, I/O: YES
+4,0,5419.693,0,674.00,3392,3210,3402,YES,2
+
+==========================================
+Frequency: 1600MHz | Run: 5/5
+==========================================
+Setting all cores to 1600MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3400 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 152709546745 uJ
+  CPU Frequency: 3401 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.04 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.07 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.21 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000147 0.000000 0.000000 0.000000 2.000147 524249426.775676 262124713.387838 PERF_SUMMARY 0.000000
+
+
+[startup] ENHANCED: I/O phase detection + CPU frequency monitoring
+[startup] pattern=miniMD_openmpi, interval=0.2s
+[startup] RAPL=on
+[startup] CPU Frequency=on
+[startup] I/O threshold: 0.52 MB/s
+[startup] Ignoring I/O detections in first 5.0s
+[startup] Checkpoint min duration: 30.0s
+[startup] Exit timeout: 2.0s after min duration
+[startup] Checkpoint directory: ./chk
+[startup] logging to storage_io_phaseA.csv
+[startup] waiting for MiniMD to launch...
+[run] MiniMD detected — ranks=1
+[run] Initial CPU frequency: 3101 MHz
+[run] CPU Governor: performance
+[PHASE] Entered CHECKPOINT_IO at t=5.12s, freq=3400MHz
+[hb] t=5.12s wchar=20.47 MB/s phase=CHECKPOINT_IO ckpt_t=0.0s ckpt_MB=0.0 P=157.85W freq=3400MHz
+[hb] t=10.25s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=5.1s ckpt_MB=107.0 P=152.21W freq=3395MHz
+[hb] t=15.37s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=10.3s ckpt_MB=213.9 P=144.39W freq=3400MHz
+[hb] t=20.50s wchar=20.41 MB/s phase=CHECKPOINT_IO ckpt_t=15.4s ckpt_MB=320.9 P=152.70W freq=3400MHz
+[hb] t=25.62s wchar=20.47 MB/s phase=CHECKPOINT_IO ckpt_t=20.5s ckpt_MB=427.8 P=155.21W freq=3385MHz
+[hb] t=30.74s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=25.6s ckpt_MB=534.8 P=145.59W freq=3380MHz
+[stop] MiniMD finished — exiting.
+
+============================================================
+MONITORING SUMMARY
+============================================================
+
+Overall CPU Frequency:
+  Average: 3389 MHz
+  Min: 3001 MHz
+  Max: 3402 MHz
+  Samples: 164
+
+Compute Phase Frequency:
+  Average: 3383 MHz
+  Samples: 24
+
+I/O Phase Frequency:
+  Average: 3390 MHz
+  Min: 3001 MHz
+  Max: 3402 MHz
+  Samples: 139
+
+============================================================
+CHECKPOINT DIRECTORY: ./chk
+============================================================
+lrwxrwxrwx. 1 hpc6084 hpc6084 33 Feb 15 22:15 ./chk -> /lscratch/slurm-job-3121348-1/chk
+
+Total size: 512	./chk
+Number of files: 2
+Total: 674.00 MB
+
+============================================================
+Monitoring data saved to: storage_io_phaseA.csv
+============================================================
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5377.921 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3386 MHz
+    Min: 3336 MHz
+    Max: 3401 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:25 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:25 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_1600MHz_run5_3121348/
+
+Summary: 0s, 5377.921J, 0W, 674.00MB, Freq: 3386/3336/3401 MHz, I/O: YES
+5,0,5377.921,0,674.00,3386,3336,3401,YES,2
+
+Averages:
+  Time: 32.48 s
+  Energy: 32.48 J
+  Power: 4.08 W
+  Checkpoint: 4.08 MB
+  Freq (Avg/Min/Max): 21 / 19 / 21 MHz
+  Runs completed: 825
+
+Results for 2.0 GHz:
+Run,Time_Sec,Energy_J,Power_W,Checkpoint_MB,Avg_Freq_MHz,Min_Freq_MHz,Max_Freq_MHz,IO_Detected,Num_Files
+
+==========================================
+Frequency: 2000MHz | Run: 1/5
+==========================================
+Setting all cores to 2000MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3405 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 84100062535 uJ
+  CPU Frequency: 3394 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.04 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.07 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.21 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000141 0.000000 0.000000 0.000000 2.000141 524250917.635591 262125458.817796 PERF_SUMMARY 0.000000
+
+
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5421.135 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3396 MHz
+    Min: 3264 MHz
+    Max: 3402 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:17 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:17 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_2000MHz_run1_3121348/
+
+Summary: 0s, 5421.135J, 0W, 674.00MB, Freq: 3396/3264/3402 MHz, I/O: YES
+1,0,5421.135,0,674.00,3396,3264,3402,YES,2
+
+==========================================
+Frequency: 2000MHz | Run: 2/5
+==========================================
+Setting all cores to 2000MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3400 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 102943608717 uJ
+  CPU Frequency: 3400 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.04 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.07 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.21 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000153 0.000000 0.000000 0.000000 2.000153 524248023.991179 262124011.995589 PERF_SUMMARY 0.000000
+
+
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5207.975 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3398 MHz
+    Min: 3368 MHz
+    Max: 3402 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:19 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:19 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_2000MHz_run2_3121348/
+
+Summary: 0s, 5207.975J, 0W, 674.00MB, Freq: 3398/3368/3402 MHz, I/O: YES
+2,0,5207.975,0,674.00,3398,3368,3402,YES,2
+
+==========================================
+Frequency: 2000MHz | Run: 3/5
+==========================================
+Setting all cores to 2000MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3407 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 121445551708 uJ
+  CPU Frequency: 3400 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.03 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.07 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.21 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000161 0.000000 0.000000 0.000000 2.000161 524245810.794132 262122905.397066 PERF_SUMMARY 0.000000
+
+
+[startup] ENHANCED: I/O phase detection + CPU frequency monitoring
+[startup] pattern=miniMD_openmpi, interval=0.2s
+[startup] RAPL=on
+[startup] CPU Frequency=on
+[startup] I/O threshold: 0.52 MB/s
+[startup] Ignoring I/O detections in first 5.0s
+[startup] Checkpoint min duration: 30.0s
+[startup] Exit timeout: 2.0s after min duration
+[startup] Checkpoint directory: ./chk
+[startup] logging to storage_io_phaseA.csv
+[startup] waiting for MiniMD to launch...
+[run] MiniMD detected — ranks=1
+[run] Initial CPU frequency: 3286 MHz
+[run] CPU Governor: performance
+[PHASE] Entered CHECKPOINT_IO at t=5.12s, freq=3401MHz
+[hb] t=5.12s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=0.0s ckpt_MB=0.0 P=139.87W freq=3401MHz
+[hb] t=10.24s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=5.1s ckpt_MB=107.0 P=157.43W freq=3375MHz
+[hb] t=15.36s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=10.2s ckpt_MB=213.9 P=154.81W freq=3364MHz
+[hb] t=20.49s wchar=20.40 MB/s phase=CHECKPOINT_IO ckpt_t=15.4s ckpt_MB=320.9 P=151.37W freq=3401MHz
+[hb] t=25.61s wchar=20.48 MB/s phase=CHECKPOINT_IO ckpt_t=20.5s ckpt_MB=427.8 P=139.57W freq=3402MHz
+[hb] t=30.73s wchar=20.49 MB/s phase=CHECKPOINT_IO ckpt_t=25.6s ckpt_MB=534.8 P=150.49W freq=3355MHz
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5392.658 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3373 MHz
+    Min: 2728 MHz
+    Max: 3403 MHz
+  I/O Phase Detected: YES (139 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:21 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:21 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_2000MHz_run3_3121348/
+
+Summary: 0s, 5392.658J, 0W, 674.00MB, Freq: 3373/2728/3403 MHz, I/O: YES
+3,0,5392.658,0,674.00,3373,2728,3403,YES,2
+
+==========================================
+Frequency: 2000MHz | Run: 4/5
+==========================================
+Setting all cores to 2000MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3397 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 140209843698 uJ
+  CPU Frequency: 3400 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.04 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.08 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.20 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000155 0.000000 0.000000 0.000000 2.000155 524247482.222719 262123741.111359 PERF_SUMMARY 0.000000
+
+
+[startup] ENHANCED: I/O phase detection + CPU frequency monitoring
+[startup] pattern=miniMD_openmpi, interval=0.2s
+[startup] RAPL=on
+[startup] CPU Frequency=on
+[startup] I/O threshold: 0.52 MB/s
+[startup] Ignoring I/O detections in first 5.0s
+[startup] Checkpoint min duration: 30.0s
+[startup] Exit timeout: 2.0s after min duration
+[startup] Checkpoint directory: ./chk
+[startup] logging to storage_io_phaseA.csv
+[startup] waiting for MiniMD to launch...
+[run] MiniMD detected — ranks=1
+[run] Initial CPU frequency: 3250 MHz
+[run] CPU Governor: performance
+[PHASE] Entered CHECKPOINT_IO at t=5.13s, freq=3400MHz
+[hb] t=5.13s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=0.0s ckpt_MB=0.0 P=158.07W freq=3400MHz
+[hb] t=10.25s wchar=20.45 MB/s phase=CHECKPOINT_IO ckpt_t=5.1s ckpt_MB=107.0 P=153.00W freq=3400MHz
+[hb] t=15.38s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=10.3s ckpt_MB=213.9 P=154.83W freq=3400MHz
+[hb] t=20.51s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=15.4s ckpt_MB=320.9 P=154.55W freq=3400MHz
+[hb] t=25.63s wchar=20.46 MB/s phase=CHECKPOINT_IO ckpt_t=20.5s ckpt_MB=427.8 P=163.73W freq=3305MHz
+[hb] t=30.76s wchar=20.31 MB/s phase=CHECKPOINT_IO ckpt_t=25.6s ckpt_MB=534.8 P=146.38W freq=3400MHz
+[stop] MiniMD finished — exiting.
+
+============================================================
+MONITORING SUMMARY
+============================================================
+
+Overall CPU Frequency:
+  Average: 3395 MHz
+  Min: 3102 MHz
+  Max: 3402 MHz
+  Samples: 164
+
+Compute Phase Frequency:
+  Average: 3396 MHz
+  Samples: 24
+
+I/O Phase Frequency:
+  Average: 3395 MHz
+  Min: 3102 MHz
+  Max: 3401 MHz
+  Samples: 139
+
+============================================================
+CHECKPOINT DIRECTORY: ./chk
+============================================================
+lrwxrwxrwx. 1 hpc6084 hpc6084 33 Feb 15 22:15 ./chk -> /lscratch/slurm-job-3121348-1/chk
+
+Total size: 512	./chk
+Number of files: 2
+Total: 674.00 MB
+
+============================================================
+Monitoring data saved to: storage_io_phaseA.csv
+============================================================
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5414.835 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3392 MHz
+    Min: 3091 MHz
+    Max: 3404 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:23 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:23 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_2000MHz_run4_3121348/
+
+Summary: 0s, 5414.835J, 0W, 674.00MB, Freq: 3392/3091/3404 MHz, I/O: YES
+4,0,5414.835,0,674.00,3392,3091,3404,YES,2
+
+==========================================
+Frequency: 2000MHz | Run: 5/5
+==========================================
+Setting all cores to 2000MHz...
+  Successfully set: 0 cores
+  Failed: 1 cores
+  Verified frequency: 3401 MHz
+
+Pre-run measurements:
+  Disk usage: 0 bytes
+  Energy counter: 158915584508 uJ
+  CPU Frequency: 3402 MHz
+
+Starting monitoring_enhanced.py...
+
+Starting miniMD with 2 cores...
+Command: mpirun -np 2 --bind-to core ./miniMD_openmpi -i in.lj.miniMD --ckpt_io_duration 30 --ckpt_chunk_mb 1 --ckpt_sleep_ms 100 --ckpt_dir /lscratch/slurm-job-3121348-1/chk
+
+# Create System:
+# Done .... 
+# miniMD-Reference 2.0 (MPI+OpenMP) output ...
+# Run Settings: 
+	# MPI processes: 2
+	# OpenMP threads: 1
+	# Inputfile: in.lj.miniMD
+	# Datafile: None
+# Physics Settings: 
+	# ForceStyle: LJ
+	# Force Parameters: 1.00 1.00
+	# Units: LJ
+	# Atoms: 1048576
+	# Atom types: 4
+	# System size: 101.59 101.59 101.59 (unit cells: 64 64 64)
+	# Density: 1.000000
+	# Force cutoff: 2.500000
+	# Timestep size: 0.005000
+# Technical Settings: 
+	# Neigh cutoff: 2.600000
+	# Half neighborlists: 1
+	# Neighbor bins: 53 53 53
+	# Neighbor frequency: 5
+	# Sorting frequency: 5
+	# Thermo frequency: 200
+	# Ghost Newton: 1
+	# Use intrinsics: 0
+	# Do safe exchange: 0
+	# Size of float: 8
+
+# Starting dynamics ...
+# Timestep T U P Time
+0 1.440000e+00 -7.761588e+00 -1.953576e+00  0.000
+
+========================================
+CHECKPOINT-ONLY MODE
+Skipping all MD computation
+Going directly to checkpoint I/O
+========================================
+
+Simulating minimal initialization...
+
+========================================
+Performing checkpoint with sustained I/O
+Target duration: 30.0 seconds
+Chunk size: 1.00 MB
+Sleep between chunks: 100 ms
+========================================
+
+=== Starting Sustained I/O Checkpoint ===
+Chunk size: 1.00 MB
+Sleep between chunks: 100000 microseconds
+Data to write per rank: 38.00 MB
+All checkpoint data written (38.00 MB in 0.03 seconds). Continuing I/O with padding (with sleep) to reach 30.0 seconds...
+
+=== I/O Checkpoint Complete ===
+Actual I/O duration: 30.06 seconds
+Checkpoint data written: 38.00 MB per rank
+Total written (with padding): 337.00 MB per rank
+Number of chunks: 338
+Average bandwidth: 11.21 MB/s per rank
+=====================================
+
+
+========================================
+CHECKPOINT-ONLY MODE COMPLETE
+All computation was skipped
+Only checkpoint I/O was performed
+========================================
+
+
+# Performance Summary:
+# MPI_proc OMP_threads nsteps natoms t_total t_force t_neigh t_comm t_other performance perf/thread grep_string t_extra
+2 1 1000 1048576 2.000139 0.000000 0.000000 0.000000 2.000139 524251603.832405 262125801.916203 PERF_SUMMARY 0.000000
+
+
+
+miniMD exit code: 0
+
+Post-run measurements:
+  Checkpoint size: 674.00 MB
+  Number of .bin files: 2
+  Energy consumed: 5367.415 J
+  Execution time: 0 s
+  CPU Frequency during run:
+    Average: 3344 MHz
+    Min: 2624 MHz
+    Max: 3406 MHz
+  I/O Phase Detected: YES (140 samples)
+
+Checkpoint directory contents:
+total 675M
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:25 checkpoint_step00000000_rank00000.bin
+-rw-r-----. 1 hpc6084 hpc6084 338M Feb 15 22:25 checkpoint_step00000000_rank00001.bin
+
+675M	/lscratch/slurm-job-3121348-1/chk
+
+Archiving checkpoint files...
+  Copied to: checkpoint_bins_2000MHz_run5_3121348/
+
+Summary: 0s, 5367.415J, 0W, 674.00MB, Freq: 3344/2624/3406 MHz, I/O: YES
+5,0,5367.415,0,674.00,3344,2624,3406,YES,2
+
+Averages:
+  Time: 39.36 s
+  Energy: 39.36 J
+  Power: 4.95 W
+  Checkpoint: 4.95 MB
+  Freq (Avg/Min/Max): 25 / 22 / 25 MHz
+  Runs completed: 681
+
+==========================================
+Output Files:
+  CSV Results:
+    - results_1200MHz_2cores_3121348.csv
+    - results_1600MHz_2cores_3121348.csv
+    - results_2000MHz_2cores_3121348.csv
+  Job Log: checkpoint_freq_full_3121348.out
+  Checkpoint bins: checkpoint_bins_*MHz_run*_3121348/
+  Frequency samples: freq_samples_*MHz_*cores_run*_3121348.txt
+  Monitoring data: monitoring_*MHz_*cores_run*_3121348.csv
+  miniMD logs: minimd_*MHz_*cores_run*_3121348.log
+==========================================
+
+==========================================
+Creating results tarball...
+==========================================
+Compressing files...
