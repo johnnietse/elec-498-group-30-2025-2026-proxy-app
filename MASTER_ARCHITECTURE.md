@@ -9,7 +9,7 @@
 # System Architecture Document
 
 **Project:** miniMD Phase-Aware DVFS Optimization  
-**Course:** ELEC 490/498 Capstone â€” Group 30  
+**Course:** ELEC 490/498 Capstone — Group 30  
 **Authors:** Johnnie Tse, Gia Lee, Zane Prance, Valerie So  
 **Supervisor:** Dr. Ryan Grant  
 **Platform:** CAC Frontenac HPC Cluster (AMD EPYC 7551P, 32 cores)  
@@ -22,9 +22,9 @@ This system implements a **user-level, phase-aware Dynamic Voltage and Frequency
 
 The architecture follows a **three-tier decoupled design**:
 
-1. **Instrumented Application** (C++ / MPI) â€” Publishes phase hints to POSIX shared memory
-2. **Frequency Controller** (Python) â€” Reads phase hints and actuates CPU `cpufreq` governors
-3. **Observability Layer** (Python / curses) â€” Optional real-time TUI dashboard for live monitoring
+1. **Instrumented Application** (C++ / MPI) — Publishes phase hints to POSIX shared memory
+2. **Frequency Controller** (Python) — Reads phase hints and actuates CPU `cpufreq` governors
+3. **Observability Layer** (Python / curses) — Optional real-time TUI dashboard for live monitoring
 
 ---
 
@@ -32,10 +32,10 @@ The architecture follows a **three-tier decoupled design**:
 
 ```mermaid
 flowchart TB
-    subgraph HPC_Node["CAC Frontenac Node (AMD EPYC 7551P Â· 32 Cores)"]
+    subgraph HPC_Node["CAC Frontenac Node (AMD EPYC 7551P · 32 Cores)"]
         direction TB
         
-        subgraph AppLayer["Application Layer (Cores 0â€“N)"]
+        subgraph AppLayer["Application Layer (Cores 0–N)"]
             miniMD["miniMD_openmpi<br/>(C++ / MPI)"]
             IO["I/O Checkpoint<br/>Phase (Gia)"]
             COMM["Communication<br/>Phase (Johnnie)"]
@@ -43,7 +43,7 @@ flowchart TB
         end
 
         subgraph IPCLayer["IPC Layer (/dev/shm)"]
-            SHM["/dev/shm/minimd_phase_hints.bin<br/>(PhaseTable Â· Lock-Free Seqlock)"]
+            SHM["/dev/shm/minimd_phase_hints.bin<br/>(PhaseTable · Lock-Free Seqlock)"]
         end
 
         subgraph ControlLayer["Control Layer (Core 30)"]
@@ -51,7 +51,7 @@ flowchart TB
         end
 
         subgraph KernelLayer["Kernel Interface"]
-            SYSFS["/sys/devices/system/cpu/cpuN/cpufreq/<br/>scaling_governor Â· scaling_setspeed"]
+            SYSFS["/sys/devices/system/cpu/cpuN/cpufreq/<br/>scaling_governor · scaling_setspeed"]
             RAPL["/sys/class/powercap/intel-rapl/<br/>energy_uj (RAPL Counters)"]
         end
 
@@ -66,7 +66,7 @@ flowchart TB
         MON -->|"sysfs read"| RAPL
     end
 
-    subgraph Reserved["Core 31 Â· RESERVED"]
+    subgraph Reserved["Core 31 · RESERVED"]
         HPC_MAINT["HPC System<br/>Maintenance"]
     end
 
@@ -85,7 +85,7 @@ flowchart TB
 
 | Core(s) | Role | Process | Changeable? |
 |---------|------|---------|-------------|
-| `0 â€“ N` | Worker Cores | MPI ranks (1:1 core binding) | âœ… Frequency controlled |
+| `0 – N` | Worker Cores | MPI ranks (1:1 core binding) | âœ… Frequency controlled |
 | `30` | Monitor Core | `mon.py` / `comm_freq_controller.py` | âŒ Pinned to `performance` |
 | `31` | Reserved | HPC system maintenance | âŒ No permission to modify |
 
@@ -148,14 +148,14 @@ stateDiagram-v2
 ### 5.2 Execution Timeline
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚  COMPUTE    â”‚        I/O PHASE           â”‚    COMM PHASE        â”‚        COMPUTE             â”‚    DONE     â”‚
-â”‚  (Force +   â”‚  (Sustained checkpoint     â”‚  (MPI loopback on    â”‚  (Second half of           â”‚             â”‚
-â”‚   Neighbor) â”‚   writes, ~30s target)     â”‚   rank 0, ~30s)      â”‚   simulation loop)         â”‚             â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¼â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-â”‚  2.0 GHz    â”‚  1.2 GHz (DVFS active)     â”‚  1.2 GHz (DVFS)      â”‚  2.0 GHz (restored)        â”‚  Cleanup    â”‚
-â”‚  performanceâ”‚  userspace governor        â”‚  userspace governor   â”‚  performance governor      â”‚             â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌─────────────┬────────────────────────────┬──────────────────────┬────────────────────────────┬─────────────┐
+│  COMPUTE    │        I/O PHASE           │    COMM PHASE        │        COMPUTE             │    DONE     │
+│  (Force +   │  (Sustained checkpoint     │  (MPI loopback on    │  (Second half of           │             │
+│   Neighbor) │   writes, ~30s target)     │   rank 0, ~30s)      │   simulation loop)         │             │
+├─────────────┼────────────────────────────┼──────────────────────┼────────────────────────────┼─────────────┤
+│  2.0 GHz    │  1.2 GHz (DVFS active)     │  1.2 GHz (DVFS)      │  2.0 GHz (restored)        │  Cleanup    │
+│  performance│  userspace governor        │  userspace governor   │  performance governor      │             │
+└─────────────┴────────────────────────────┴──────────────────────┴────────────────────────────┴─────────────┘
 ```
 
 ---
@@ -175,13 +175,13 @@ stateDiagram-v2
 - **Consequences:** Reduces available worker cores by 1 (from 31 to 30 max)
 
 ### ADR-003: Simple Phase Controller (Test C) over Adaptive Controller (Test C2)
-- **Context:** Two controller designs were evaluated â€” a simple threshold-based controller and an adaptive beta-adaptation controller
+- **Context:** Two controller designs were evaluated — a simple threshold-based controller and an adaptive beta-adaptation controller
 - **Decision:** Adopt the simple `comm_freq_controller.py` (Test C) as the production controller
-- **Rationale:** Test C2 (`integrated_freq_controller.py`) caused 38â€“97% execution time regressions due to slow frequency ramp-up after I/O phases. Test C maintains â‰¤0.4% overhead
+- **Rationale:** Test C2 (`integrated_freq_controller.py`) caused 38–97% execution time regressions due to slow frequency ramp-up after I/O phases. Test C maintains ≤0.4% overhead
 - **Consequences:** Simpler code, predictable behavior, modest but reliable energy savings
 
 ### ADR-004: Sustained I/O and Communication Phases
-- **Context:** Original miniMD has no I/O or communication phases â€” they needed to be synthesized for research
+- **Context:** Original miniMD has no I/O or communication phases — they needed to be synthesized for research
 - **Decision:** Inject sustained I/O (Gia) and MPI loopback communication (Johnnie) phases into the simulation loop
 - **Rationale:** Real HPC applications have substantial communication and I/O phases; miniMD alone is nearly purely compute-bound. The synthesis creates a realistic multi-phase workload
 - **Consequences:** Phases are configurable via CLI flags (`--comm_phase`, `--comm_standin_mb`, `--ckpt_ioscale_sec`)
@@ -198,46 +198,46 @@ stateDiagram-v2
 
 ```
 ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
-â”œâ”€â”€ 00_architecture_docs/    [NEW] Software architecture documentation
-â”œâ”€â”€ 01_docs/                 Formal reports, guides, and reference materials
-â”‚   â”œâ”€â”€ reports/             Final capstone reports (ELEC 490 Reports 1 & 2)
-â”‚   â””â”€â”€ guides/              Testing guides and command references
-â”œâ”€â”€ 02_src/                  Production source code (curated final versions)
-â”‚   â”œâ”€â”€ comm_phase_version/  C++ source with communication phase (Johnnie)
-â”‚   â”œâ”€â”€ mpi_comm_version/    C++ source with MPI comm + shared-memory hints (Zane)
-â”‚   â”œâ”€â”€ controllers/         Python frequency controllers
-â”‚   â”œâ”€â”€ monitoring/          Phase monitoring and dashboard tools
-â”‚   â””â”€â”€ analysis/            Data analysis and plot generation scripts
-â”œâ”€â”€ 03_scripts/              Operational runtime scripts
-â”‚   â”œâ”€â”€ batch_tests/         Parameterized batch test scripts (Tests Aâ€“D)
-â”‚   â”œâ”€â”€ cluster_jobs/        SLURM job submission and environment setup
-â”‚   â””â”€â”€ setup/               Environment setup scripts (placeholder)
-â”œâ”€â”€ 04_configs/              Configuration files and simulation inputs
-â”œâ”€â”€ 05_data/                 Telemetry dumps and experimental results
-â”‚   â”œâ”€â”€ raw_results/         Unprocessed hardware measurement logs
-â”‚   â”œâ”€â”€ processed/           Extracted and cleaned datasets
-â”‚   â”œâ”€â”€ synthetic/           Generated synthetic datasets
-â”‚   â””â”€â”€ misc/                Git diffs, pull results
-â”œâ”€â”€ 06_outputs/              Analytics, figures, and generated reports
-â”‚   â”œâ”€â”€ 02_performance_analysis_sweep/  Frequency scaling study
-â”‚   â”œâ”€â”€ final_figures/       Publication-quality figures (fig01â€“fig14)
-â”‚   â””â”€â”€ supplementary_plots/ Supporting visualizations (plot01â€“plot13)
-â”œâ”€â”€ 07_archive/              Deprecated prototypes and historical branches
-â”‚   â”œâ”€â”€ johnnie_comm_phase/  Communication phase optimization (primary)
-â”‚   â”œâ”€â”€ johnnie_serial_memory_phase/  Serial/memory phase exploration
-â”‚   â”œâ”€â”€ gia_final/           I/O checkpoint with monitoring
-â”‚   â”œâ”€â”€ gia_scaling_io/      I/O scaling with frequency monitoring
-â”‚   â”œâ”€â”€ zane_mpi_comm/       MPI communication controller (multiple iterations)
-â”‚   â”œâ”€â”€ zane_prototype/      Early prototype (pre-MPI comm)
-â”‚   â”œâ”€â”€ val_testing/         I/O benchmark automation suite
-â”‚   â””â”€â”€ main_repo/           Original repository placeholder
-â”œâ”€â”€ 08_test_gui/             TUI/web/windowed dashboard experiments
-â”œâ”€â”€ johnnie-comm-phase/      Active development branch (comm phase source)
-â”œâ”€â”€ README.md                Project overview
-â”œâ”€â”€ .gitignore               Version control exclusions
-â”œâ”€â”€ reorganize_workspace.ps1 7-phase workspace migration script
-â”œâ”€â”€ large_files.txt          Registry of files exceeding Git's size limit
-â””â”€â”€ push_log.txt             Git push operation logs
+├── 00_architecture_docs/    [NEW] Software architecture documentation
+├── 01_docs/                 Formal reports, guides, and reference materials
+│   ├── reports/             Final capstone reports (ELEC 490 Reports 1 & 2)
+│   └── guides/              Testing guides and command references
+├── 02_src/                  Production source code (curated final versions)
+│   ├── comm_phase_version/  C++ source with communication phase (Johnnie)
+│   ├── mpi_comm_version/    C++ source with MPI comm + shared-memory hints (Zane)
+│   ├── controllers/         Python frequency controllers
+│   ├── monitoring/          Phase monitoring and dashboard tools
+│   └── analysis/            Data analysis and plot generation scripts
+├── 03_scripts/              Operational runtime scripts
+│   ├── batch_tests/         Parameterized batch test scripts (Tests A–D)
+│   ├── cluster_jobs/        SLURM job submission and environment setup
+│   └── setup/               Environment setup scripts (placeholder)
+├── 04_configs/              Configuration files and simulation inputs
+├── 05_data/                 Telemetry dumps and experimental results
+│   ├── raw_results/         Unprocessed hardware measurement logs
+│   ├── processed/           Extracted and cleaned datasets
+│   ├── synthetic/           Generated synthetic datasets
+│   └── misc/                Git diffs, pull results
+├── 06_outputs/              Analytics, figures, and generated reports
+│   ├── 02_performance_analysis_sweep/  Frequency scaling study
+│   ├── final_figures/       Publication-quality figures (fig01–fig14)
+│   └── supplementary_plots/ Supporting visualizations (plot01–plot13)
+├── 07_archive/              Deprecated prototypes and historical branches
+│   ├── johnnie_comm_phase/  Communication phase optimization (primary)
+│   ├── johnnie_serial_memory_phase/  Serial/memory phase exploration
+│   ├── gia_final/           I/O checkpoint with monitoring
+│   ├── gia_scaling_io/      I/O scaling with frequency monitoring
+│   ├── zane_mpi_comm/       MPI communication controller (multiple iterations)
+│   ├── zane_prototype/      Early prototype (pre-MPI comm)
+│   ├── val_testing/         I/O benchmark automation suite
+│   └── main_repo/           Original repository placeholder
+├── 08_test_gui/             TUI/web/windowed dashboard experiments
+├── johnnie-comm-phase/      Active development branch (comm phase source)
+├── README.md                Project overview
+├── .gitignore               Version control exclusions
+├── reorganize_workspace.ps1 7-phase workspace migration script
+├── large_files.txt          Registry of files exceeding Git's size limit
+└── push_log.txt             Git push operation logs
 ```
 
 ---
@@ -259,9 +259,9 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 |----------|-------------|-------|
 | `/dev/shm/minimd_phase_hints.bin` | `0666` (world r/w) | Created by Rank 0, cleaned up on termination via `unlink()` |
 | `/sys/devices/system/cpu/cpuN/cpufreq/*` | Root or `cpufreq` group | Requires `sudo` or group membership on Frontenac |
-| `/sys/class/powercap/intel-rapl/*/energy_uj` | Readable by default | RAPL energy counters â€” read-only telemetry |
+| `/sys/class/powercap/intel-rapl/*/energy_uj` | Readable by default | RAPL energy counters — read-only telemetry |
 | Core 31 | System-reserved | HPC scheduler owns this core; **never modify** |
-| `cleanup.sh` | Emergency restore | Restores all governors to `performance` â€” run after crashes |
+| `cleanup.sh` | Emergency restore | Restores all governors to `performance` — run after crashes |
 
 ---
 
@@ -273,9 +273,9 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 | Monitor poll interval | 2ms | 2ms (`--poll-ms 2`) |
 | Frequency actuation latency | <1ms | <1ms (direct sysfs write) |
 | Controller CPU overhead | <5% | 0.04% (0.04ms per 100ms loop) |
-| Execution time overhead (Test C) | <3% | â‰¤0.4% |
-| Energy savings (Test C, N=30) | 10â€“15% | ~2.4% (limited by I/O sleep pattern) |
-| RAPL measurement variance | â€” | 10â€“20% Ïƒ (requires 25+ trials for significance) |
+| Execution time overhead (Test C) | <3% | ≤0.4% |
+| Energy savings (Test C, N=30) | 10–15% | ~2.4% (limited by I/O sleep pattern) |
+| RAPL measurement variance | — | 10–20% σ (requires 25+ trials for significance) |
 
 ---
 
@@ -285,9 +285,9 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 |---------|--------|----------|
 | Monitor crashes mid-actuation | Worker cores stuck in `userspace` governor at low frequency | Run `cleanup.sh` to restore all governors to `performance` |
 | Shared memory file missing | Monitor waits indefinitely; dashboard shows "Waiting for hint file" | Restart miniMD (Rank 0 creates the file) |
-| RAPL counter overflow | Energy values wrap around (16-bit ÂµJ counter) | Correct with modular arithmetic; occurs at ~80 minutes of continuous measurement |
+| RAPL counter overflow | Energy values wrap around (16-bit µJ counter) | Correct with modular arithmetic; occurs at ~80 minutes of continuous measurement |
 | MPI rank crash | Application exits; shared memory orphaned | `unlink()` called by Rank 0 on normal exit; manual `rm /dev/shm/*.bin` otherwise |
-| Tmux session collision | `launch_demo.sh` kills existing `minimd_demo` session | By design â€” script runs `tmux kill-session` first |
+| Tmux session collision | `launch_demo.sh` kills existing `minimd_demo` session | By design — script runs `tmux kill-session` first |
 
 ---
 
@@ -312,9 +312,9 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 ---
 
 
-# 09_data_flow_and_ipc.md â€” Data Flow and Inter-Process Communication
+# 09_data_flow_and_ipc.md — Data Flow and Inter-Process Communication
 
-**Scope:** Cross-cutting concern documentation covering the shared-memory IPC protocol, data flow from application â†’ monitor â†’ actuator, and the seqlock synchronization mechanism.
+**Scope:** Cross-cutting concern documentation covering the shared-memory IPC protocol, data flow from application → monitor → actuator, and the seqlock synchronization mechanism.
 
 ---
 
@@ -382,13 +382,13 @@ flowchart TD
 | Environment Override | `$PHASE_HINT_PATH` |
 | File Permissions | `0666` (world readable/writable) |
 | Creator | MPI Rank 0 (`phase_hint_init()`) |
-| Cleanup | MPI Rank 0 (`phase_hint_fini()` â†’ `unlink()`) |
+| Cleanup | MPI Rank 0 (`phase_hint_fini()` → `unlink()`) |
 
 ### 2.2 Memory Layout
 
 ```
 Offset  Size    Field              Description
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+─────────────────────────────────────────────────────────
 0x0000  4 bytes  magic             Magic number: 0x50485331 ("PHS1")
 0x0004  4 bytes  nslots            Number of active phase slots
 0x0008  24 bytes slot[0]           PhaseSlot for rank 0
@@ -397,21 +397,21 @@ Offset  Size    Field              Description
 0x0008 + i*24    slot[i]           PhaseSlot for rank i
 ...
 0x0608  24 bytes slot[63]          PhaseSlot for rank 63 (max)
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-Total: 8 + 64 Ã— 24 = 1,544 bytes
+─────────────────────────────────────────────────────────
+Total: 8 + 64 × 24 = 1,544 bytes
 ```
 
 ### 2.3 PhaseSlot Layout (24 bytes per slot)
 
 ```
 Offset  Size    Field    Type               Description
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+──────────────────────────────────────────────────────────
 +0x00   4 bytes  seq     volatile uint32_t  Sequence counter (seqlock)
 +0x04   4 bytes  rank    volatile int32_t   MPI rank index
 +0x08   4 bytes  core    volatile int32_t   CPU core ID (sched_getcpu())
 +0x0C   4 bytes  phase   volatile uint32_t  PhaseCode enum value
 +0x10   8 bytes  t_ns    volatile uint64_t  CLOCK_MONOTONIC timestamp (ns)
-â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+──────────────────────────────────────────────────────────
 ```
 
 ---
@@ -420,7 +420,7 @@ Offset  Size    Field    Type               Description
 
 The system uses a **lock-free sequence lock** protocol to ensure readers always get a consistent snapshot of phase data without blocking writers.
 
-### 3.1 Writer Protocol (C++ â€” `phase_hint_write()`)
+### 3.1 Writer Protocol (C++ — `phase_hint_write()`)
 
 ```
 1. seq = slot.seq + 1          // Increment to ODD (write in progress)
@@ -432,7 +432,7 @@ The system uses a **lock-free sequence lock** protocol to ensure readers always 
 
 **Key Invariant:** An **odd** sequence number means a write is in progress; an **even** sequence number means the data is stable.
 
-### 3.2 Reader Protocol (Python â€” `snapshot_slot()`)
+### 3.2 Reader Protocol (Python — `snapshot_slot()`)
 
 ```python
 while True:
@@ -446,7 +446,7 @@ while True:
     seq2  = slot.seq
     if seq1 == seq2:           # No writer interrupted
         return (rank, core, phase, t_ns)
-    # Else: writer changed data during read â€” retry
+    # Else: writer changed data during read — retry
 ```
 
 ### 3.3 Timing Characteristics
@@ -539,7 +539,7 @@ sequenceDiagram
     RN->>SHM: munmap()
     R0->>SHM: close()
     RN->>SHM: close()
-    R0->>SHM: unlink() â€” removes file
+    R0->>SHM: unlink() — removes file
     
     Mon->>Mon: Detect all PHASE_DONE
     Mon->>Mon: Restore governors to performance
@@ -581,7 +581,7 @@ flowchart LR
 
 ## 6. `/proc/<pid>/io` Based Detection (Alternative)
 
-`monitoring.py` (Gia) uses a completely different approach â€” instead of application-published phase hints, it monitors each MPI rank's write throughput via Linux's `/proc/<pid>/io` pseudo-filesystem.
+`monitoring.py` (Gia) uses a completely different approach — instead of application-published phase hints, it monitors each MPI rank's write throughput via Linux's `/proc/<pid>/io` pseudo-filesystem.
 
 | Method | Shared Memory (Zane/Johnnie) | /proc/io Monitoring (Gia) |
 |--------|-----------------------------|---------------------------|
@@ -596,7 +596,7 @@ flowchart LR
 ---
 
 
-# 02_src/ â€” Source Code Directory
+# 02_src/ — Source Code Directory
 
 **Parent:** Repository Root  
 **Purpose:** Contains the curated, production-ready source code for the miniMD DVFS optimization system.  
@@ -608,28 +608,28 @@ flowchart LR
 
 ```
 02_src/
-â”œâ”€â”€ README.md                         (688 bytes)
-â”œâ”€â”€ comm_phase_version/               (empty â€” files in johnnie-comm-phase/)
-â”œâ”€â”€ mpi_comm_version/
-â”‚   â”œâ”€â”€ integrate.cpp                 (34,873 bytes Â· 1,136 lines)
-â”‚   â””â”€â”€ integrate.h                   (1,533 bytes Â· 50 lines)
-â”œâ”€â”€ controllers/                      (empty â€” files in 07_archive/)
-â”œâ”€â”€ monitoring/
-â”‚   â”œâ”€â”€ monitoring.py                 (5,922 bytes Â· 189 lines)
-â”‚   â”œâ”€â”€ dashboard.py                  (11,248 bytes Â· 339 lines)
-â”‚   â”œâ”€â”€ bridge_to_dashboard.py        (3,462 bytes Â· 97 lines)
-â”‚   â””â”€â”€ mon.py                        (5,363 bytes Â· 178 lines)
-â””â”€â”€ analysis/
-    â””â”€â”€ regenerate_all_plots_v4.py    (31,190 bytes)
+├── README.md                         (688 bytes)
+├── comm_phase_version/               (empty — files in johnnie-comm-phase/)
+├── mpi_comm_version/
+│   ├── integrate.cpp                 (34,873 bytes · 1,136 lines)
+│   └── integrate.h                   (1,533 bytes · 50 lines)
+├── controllers/                      (empty — files in 07_archive/)
+├── monitoring/
+│   ├── monitoring.py                 (5,922 bytes · 189 lines)
+│   ├── dashboard.py                  (11,248 bytes · 339 lines)
+│   ├── bridge_to_dashboard.py        (3,462 bytes · 97 lines)
+│   └── mon.py                        (5,363 bytes · 178 lines)
+└── analysis/
+    └── regenerate_all_plots_v4.py    (31,190 bytes)
 ```
 
 ---
 
-## Subsystem: `mpi_comm_version/` â€” Instrumented miniMD Source
+## Subsystem: `mpi_comm_version/` — Instrumented miniMD Source
 
-This is the **production C++ codebase** â€” the miniMD molecular dynamics proxy application with full instrumentation for phase-aware DVFS optimization.
+This is the **production C++ codebase** — the miniMD molecular dynamics proxy application with full instrumentation for phase-aware DVFS optimization.
 
-### `integrate.h` â€” Class Declaration
+### `integrate.h` — Class Declaration
 
 | Attribute | Value |
 |-----------|-------|
@@ -641,20 +641,20 @@ This is the **production C++ codebase** â€” the miniMD molecular dynamics p
 
 | Member | Type | Default | Purpose |
 |--------|------|---------|---------|
-| `dt` | `MMD_float` | â€” | Simulation timestep |
-| `dtforce` | `MMD_float` | â€” | Force integration timestep (= `0.5 * dt`) |
-| `ntimes` | `MMD_int` | â€” | Total number of simulation timesteps |
-| `nlocal` | `MMD_int` | â€” | Number of local atoms on this MPI rank |
-| `nmax` | `MMD_int` | â€” | Maximum atom array size |
-| `x, v, f, xold` | `MMD_float*` | â€” | Position, velocity, force, and old-position arrays |
-| `mass` | `MMD_float` | â€” | Atom mass |
+| `dt` | `MMD_float` | — | Simulation timestep |
+| `dtforce` | `MMD_float` | — | Force integration timestep (= `0.5 * dt`) |
+| `ntimes` | `MMD_int` | — | Total number of simulation timesteps |
+| `nlocal` | `MMD_int` | — | Number of local atoms on this MPI rank |
+| `nmax` | `MMD_int` | — | Maximum atom array size |
+| `x, v, f, xold` | `MMD_float*` | — | Position, velocity, force, and old-position arrays |
+| `mass` | `MMD_float` | — | Atom mass |
 | `sort_every` | `MMD_int` | `20` | Sort atom arrays every N steps |
-| `ckpt_interval` | `MMD_int` | `0` | **DEPRECATED** â€” kept for compatibility |
+| `ckpt_interval` | `MMD_int` | `0` | **DEPRECATED** — kept for compatibility |
 | `ckpt_dir` | `const char*` | `"chk"` | Output directory for checkpoint files |
 | `ckpt_at_end` | `MMD_int` | `1` | Perform checkpoint at end of simulation |
 | `ckpt_io_duration_sec` | `double` | `30.0` | Target I/O duration in seconds |
 | `ckpt_chunk_bytes` | `size_t` | `1 MB` | Bytes per chunk write |
-| `ckpt_sleep_us` | `int` | `100000` | Sleep between chunks (Âµs) â€” 100ms default |
+| `ckpt_sleep_us` | `int` | `100000` | Sleep between chunks (µs) — 100ms default |
 | `ckpt_fsync_chunks` | `int` | `0` | Whether to fsync after each chunk |
 | `comm_phase_enabled` | `int` | `1` | Enable network communication phase |
 | `comm_standin_bytes` | `size_t` | `309 MB` | Stand-in total bytes for communication |
@@ -673,9 +673,9 @@ This is the **production C++ codebase** â€” the miniMD molecular dynamics p
 
 ---
 
-### `integrate.cpp` â€” Core Implementation (1,136 lines)
+### `integrate.cpp` — Core Implementation (1,136 lines)
 
-#### Shared-Memory Phase Hint System (Lines 59â€“191)
+#### Shared-Memory Phase Hint System (Lines 59–191)
 
 ##### `PhaseCode` Enum
 
@@ -717,44 +717,44 @@ struct PhaseTable {
 
 | Function | Lines | Purpose |
 |----------|-------|---------|
-| `phase_hint_path()` | 102â€“105 | Returns `$PHASE_HINT_PATH` or default `/dev/shm/minimd_phase_hints.bin` |
-| `monotonic_ns()` | 107â€“112 | Returns current `CLOCK_MONOTONIC` timestamp in nanoseconds |
-| `phase_hint_write(phase)` | 114â€“131 | Writes phase to shared memory using seqlock (odd seq = write in progress, even = stable) |
-| `phase_hint_init(me, nprocs)` | 133â€“172 | Rank 0 creates & initializes shared memory file; all ranks `mmap()` it |
-| `phase_hint_fini(me)` | 174â€“191 | Writes `PHASE_DONE`, unmaps memory, Rank 0 unlinks file |
+| `phase_hint_path()` | 102–105 | Returns `$PHASE_HINT_PATH` or default `/dev/shm/minimd_phase_hints.bin` |
+| `monotonic_ns()` | 107–112 | Returns current `CLOCK_MONOTONIC` timestamp in nanoseconds |
+| `phase_hint_write(phase)` | 114–131 | Writes phase to shared memory using seqlock (odd seq = write in progress, even = stable) |
+| `phase_hint_init(me, nprocs)` | 133–172 | Rank 0 creates & initializes shared memory file; all ranks `mmap()` it |
+| `phase_hint_fini(me)` | 174–191 | Writes `PHASE_DONE`, unmaps memory, Rank 0 unlinks file |
 
-#### I/O Checkpoint System (Lines 193â€“509)
+#### I/O Checkpoint System (Lines 193–509)
 
 | Function | Lines | Purpose |
 |----------|-------|---------|
-| `clean_checkpoint_dir(dir)` | 199â€“248 | Rank 0 removes old checkpoint files (preserves symlinks) |
-| `mkdir_rank0(dir)` | 251â€“268 | Rank 0 creates checkpoint directory |
-| `write_checkpoint_sustained_io(...)` | 272â€“505 | Full sustained I/O checkpoint â€” writes real simulation data (positions, velocities, forces), then pads with synthetic data until `target_duration_sec` is reached |
+| `clean_checkpoint_dir(dir)` | 199–248 | Rank 0 removes old checkpoint files (preserves symlinks) |
+| `mkdir_rank0(dir)` | 251–268 | Rank 0 creates checkpoint directory |
+| `write_checkpoint_sustained_io(...)` | 272–505 | Full sustained I/O checkpoint — writes real simulation data (positions, velocities, forces), then pads with synthetic data until `target_duration_sec` is reached |
 
 **Checkpoint Data Layout (per rank):**
 ```
 [CheckpointHeader: 96 bytes]
-[positions: nlocal Ã— 3 Ã— sizeof(MMD_float)]
-[velocities: nlocal Ã— 3 Ã— sizeof(MMD_float)]
-[forces: nlocal Ã— 3 Ã— sizeof(MMD_float)]
-[types: nlocal Ã— sizeof(int)] (optional)
+[positions: nlocal × 3 × sizeof(MMD_float)]
+[velocities: nlocal × 3 × sizeof(MMD_float)]
+[forces: nlocal × 3 × sizeof(MMD_float)]
+[types: nlocal × sizeof(int)] (optional)
 ```
 
-#### Communication Phase (Lines 511â€“685)
+#### Communication Phase (Lines 511–685)
 
 | Function | Lines | Purpose |
 |----------|-------|---------|
-| `calculate_per_rank_data_bytes(atom)` | 518â€“529 | Computes checkpoint-equivalent data size per rank |
-| `simulate_network_communication(...)` | 531â€“681 | Rank 0 performs MPI loopback send/recv for `target_duration_sec`; other ranks wait at `MPI_Barrier` |
+| `calculate_per_rank_data_bytes(atom)` | 518–529 | Computes checkpoint-equivalent data size per rank |
+| `simulate_network_communication(...)` | 531–681 | Rank 0 performs MPI loopback send/recv for `target_duration_sec`; other ranks wait at `MPI_Barrier` |
 
 **Communication Data Size Formula:**
 ```
-per_rank = header_bytes + (nlocal Ã— 3 Ã— sizeof(MMD_float) Ã— 3) + (nlocal Ã— sizeof(int))
-         = 96 + nlocal Ã— 76 bytes (when MMD_float = double, 8 bytes)
-total    = per_rank Ã— nprocs
+per_rank = header_bytes + (nlocal × 3 × sizeof(MMD_float) × 3) + (nlocal × sizeof(int))
+         = 96 + nlocal × 76 bytes (when MMD_float = double, 8 bytes)
+total    = per_rank × nprocs
 ```
 
-#### Main Simulation Loop (`Integrate::run()`, Lines 729â€“end)
+#### Main Simulation Loop (`Integrate::run()`, Lines 729–end)
 
 ```mermaid
 flowchart TB
@@ -781,9 +781,9 @@ flowchart TB
 
 ---
 
-## Subsystem: `monitoring/` â€” Phase Monitoring and Dashboard Tools
+## Subsystem: `monitoring/` — Phase Monitoring and Dashboard Tools
 
-### `monitoring.py` â€” I/O Detection Monitor (Gia)
+### `monitoring.py` — I/O Detection Monitor (Gia)
 
 | Attribute | Value |
 |-----------|-------|
@@ -810,7 +810,7 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 
 ---
 
-### `mon.py` â€” Phase-Aware Frequency Controller (Zane)
+### `mon.py` — Phase-Aware Frequency Controller (Zane)
 
 | Attribute | Value |
 |-----------|-------|
@@ -848,15 +848,15 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 |----------|---------|
 | `set_governor(core, gov)` | Write governor name to `/sys/devices/system/cpu/cpuN/cpufreq/scaling_governor` |
 | `set_freq(core, freq)` | Write frequency to `scaling_setspeed` (only in `userspace` governor) |
-| `apply_mode(core, mode, freq, cache)` | Cached apply â€” skips write if state unchanged |
-| `snapshot_slot(slot)` | Seqlock reader â€” retries until sequence number is even and stable |
-| `desired_policy(phase, age_ms, args)` | Maps (phase, age) â†’ (governor, frequency) |
+| `apply_mode(core, mode, freq, cache)` | Cached apply — skips write if state unchanged |
+| `snapshot_slot(slot)` | Seqlock reader — retries until sequence number is even and stable |
+| `desired_policy(phase, age_ms, args)` | Maps (phase, age) → (governor, frequency) |
 
 **Safety:** Skips cores 30 (monitor) and 31 (reserved). On `KeyboardInterrupt`, restores all seen cores to `performance` governor.
 
 ---
 
-### `dashboard.py` â€” Live Terminal Dashboard (Zane)
+### `dashboard.py` — Live Terminal Dashboard (Zane)
 
 | Attribute | Value |
 |-----------|-------|
@@ -871,35 +871,35 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 #### Dashboard Layout
 
 ```
-â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-â”‚       miniMD PHASE-AWARE DVFS LIVE DASHBOARD      â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”                â”‚
-â”‚ AVG  â”‚ MIN/ â”‚ LOW  â”‚ PERF/â”‚PHASE â”‚  KPI boxes     â”‚
-â”‚ MHz  â”‚ MAX  â”‚ FREQ â”‚ USER â”‚SLOTS â”‚                â”‚
-â”œâ”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”˜                â”‚
-â”‚ â”Œ Average Frequency Trend â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”  â”‚
-â”‚ â”‚ â–â–‚â–ƒâ–„â–…â–†â–‡â–ˆâ–‡â–†â–…â–„â–ƒâ–‚â–â–‚â–ƒâ–„â–…â–†â–‡â–ˆ  1800 MHz           â”‚  â”‚
-â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â”‚
-â”‚ â”Œ Per-Core Frequency â”€â”€â”€â”€â”€â”€â”€â”€â” â”Œ App Phases â”€â”€â”  â”‚
-â”‚ â”‚ cpu00 2000 P â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘ â”‚ â”‚ Phase totals â”‚  â”‚
-â”‚ â”‚ cpu01 2000 P â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘ â”‚ â”‚ COMPUTE  16  â”‚  â”‚
-â”‚ â”‚ cpu02 1200 U â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘â–‘â–‘â–‘â–‘â–‘â–‘ â”‚ â”‚ IO        0  â”‚  â”‚
-â”‚ â”‚ ...                        â”‚ â”‚              â”‚  â”‚
-â”‚ â”‚ cpu29 1200 U â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘â–‘â–‘â–‘â–‘â–‘â–‘ â”‚ â”‚ Rank â†’ core  â”‚  â”‚
-â”‚ â”‚ cpu30 2000 P â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘ â”‚ â”‚ rank 00â†’cpu04â”‚  â”‚
-â”‚ â”‚ cpu31 2000 P â–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–ˆâ–‘ â”‚ â”‚ rank 01â†’cpu05â”‚  â”‚
-â”‚ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜ â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜  â”‚
-â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+┌──────────────────────────────────────────────────┐
+│       miniMD PHASE-AWARE DVFS LIVE DASHBOARD      │
+├──────┬──────┬──────┬──────┬──────┐                │
+│ AVG  │ MIN/ │ LOW  │ PERF/│PHASE │  KPI boxes     │
+│ MHz  │ MAX  │ FREQ │ USER │SLOTS │                │
+├──────┴──────┴──────┴──────┴──────┘                │
+│ ┌ Average Frequency Trend ─────────────────────┐  │
+│ │ ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█  1800 MHz           │  │
+│ └──────────────────────────────────────────────┘  │
+│ ┌ Per-Core Frequency ────────┐ ┌ App Phases ──┐  │
+│ │ cpu00 2000 P ████████████â–‘ │ │ Phase totals │  │
+│ │ cpu01 2000 P ████████████â–‘ │ │ COMPUTE  16  │  │
+│ │ cpu02 1200 U ██████â–‘â–‘â–‘â–‘â–‘â–‘â–‘ │ │ IO        0  │  │
+│ │ ...                        │ │              │  │
+│ │ cpu29 1200 U ██████â–‘â–‘â–‘â–‘â–‘â–‘â–‘ │ │ Rank → core  │  │
+│ │ cpu30 2000 P ████████████â–‘ │ │ rank 00→cpu04│  │
+│ │ cpu31 2000 P ████████████â–‘ │ │ rank 01→cpu05│  │
+│ └────────────────────────────┘ └──────────────┘  │
+└──────────────────────────────────────────────────┘
 ```
 
 #### Visual Elements
 
 | Element | Implementation |
 |---------|---------------|
-| Sparkline (`â–â–‚â–ƒâ–„â–…â–†â–‡â–ˆ`) | 120-sample sliding window of average MHz |
-| Frequency bars (`â–ˆâ–ˆâ–ˆâ–ˆâ–‘â–‘â–‘â–‘`) | Proportional fill against `MAX_MHZ = 3600` |
+| Sparkline (`▁▂▃▄▅▆▇█`) | 120-sample sliding window of average MHz |
+| Frequency bars (`████â–‘â–‘â–‘â–‘`) | Proportional fill against `MAX_MHZ = 3600` |
 | Governor shorthand | `P` = performance, `U` = userspace |
-| Color scheme | Red = <1400 MHz, Yellow = <2200 MHz, Green = â‰¥2200 MHz |
+| Color scheme | Red = <1400 MHz, Yellow = <2200 MHz, Green = ≥2200 MHz |
 
 #### CLI Arguments
 
@@ -911,23 +911,23 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 | `--hint-file` | `$PHASE_HINT_PATH` | Shared memory path |
 
 #### Keyboard Controls
-- `q` / `Q` â€” Quit dashboard
-- `r` / `R` â€” Reconnect to phase hint file
+- `q` / `Q` — Quit dashboard
+- `r` / `R` — Reconnect to phase hint file
 
 ---
 
-### `bridge_to_dashboard.py` â€” Text-to-Shared-Memory Bridge (Zane)
+### `bridge_to_dashboard.py` — Text-to-Shared-Memory Bridge (Zane)
 
 | Attribute | Value |
 |-----------|-------|
 | Size | 3,462 bytes (97 lines) |
 | Language | Python 3 |
 | Author | Zane Prance |
-| Purpose | Translates text-based `phase_marker.txt` signals â†’ shared-memory `PhaseTable` format |
+| Purpose | Translates text-based `phase_marker.txt` signals → shared-memory `PhaseTable` format |
 
 **Architecture:** A compatibility layer. When the C++ application writes phase changes to `phase_marker.txt` (e.g., `"COMM_START"`, `"IO_END"`), this bridge reads the text file at 50ms intervals and writes the corresponding phase codes to the shared-memory hint file.
 
-| Text Marker | â†’ Phase Code |
+| Text Marker | → Phase Code |
 |-------------|-------------|
 | `"COMM_START"` | `PHASE_COMMUNICATE` (1) |
 | `"IO_START"` | `PHASE_IO` (5) |
@@ -936,7 +936,7 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 
 ---
 
-## Subsystem: `analysis/` â€” Data Processing
+## Subsystem: `analysis/` — Data Processing
 
 ### `regenerate_all_plots_v4.py`
 
@@ -964,7 +964,7 @@ These directories were created by `reorganize_workspace.ps1` but the source file
 ---
 
 
-# 04_configs/ â€” Configuration Directory
+# 04_configs/ — Configuration Directory
 
 **Parent:** Repository Root  
 **Purpose:** Centralizes all parameter definitions, scaling thresholds, compiler flags, and job submission setups used to deploy the application on the cluster.  
@@ -976,16 +976,16 @@ These directories were created by `reorganize_workspace.ps1` but the source file
 
 ```
 04_configs/
-â”œâ”€â”€ README.md                  (878 bytes)
-â”œâ”€â”€ config_memory.cfg          (489 bytes Â· 21 lines)
-â”œâ”€â”€ config_serial.cfg          (487 bytes Â· 21 lines)
-â”œâ”€â”€ input_memory_1000.in       (132 bytes Â· 7 lines)
-â”œâ”€â”€ input_memory_5000.in       (131 bytes Â· 7 lines)
-â”œâ”€â”€ input_memory_10000.in      (139 bytes Â· 7 lines)
-â”œâ”€â”€ input_memory_50000.in      (136 bytes Â· 7 lines)
-â”œâ”€â”€ input_memory_100000.in     (136 bytes Â· 7 lines)
-â”œâ”€â”€ input_memory_large.in      (345 bytes)
-â””â”€â”€ input_serial.in            (370 bytes Â· 19 lines)
+├── README.md                  (878 bytes)
+├── config_memory.cfg          (489 bytes · 21 lines)
+├── config_serial.cfg          (487 bytes · 21 lines)
+├── input_memory_1000.in       (132 bytes · 7 lines)
+├── input_memory_5000.in       (131 bytes · 7 lines)
+├── input_memory_10000.in      (139 bytes · 7 lines)
+├── input_memory_50000.in      (136 bytes · 7 lines)
+├── input_memory_100000.in     (136 bytes · 7 lines)
+├── input_memory_large.in      (345 bytes)
+└── input_serial.in            (370 bytes · 19 lines)
 ```
 
 **Total Files:** 10 (1 README + 2 configs + 7 inputs)  
@@ -1003,7 +1003,7 @@ These directories were created by `reorganize_workspace.ps1` but the source file
 
 ---
 
-### `config_memory.cfg` â€” Memory-Bound Phase Configuration
+### `config_memory.cfg` — Memory-Bound Phase Configuration
 
 | Attribute | Value |
 |-----------|-------|
@@ -1017,7 +1017,7 @@ These directories were created by `reorganize_workspace.ps1` but the source file
 | `problem_size` | `large` | Large problem for memory pressure |
 | `solver_tolerance` | `1.0e-10` | Tight convergence for extended runtime |
 | `max_iterations` | `500` | Extended iteration count |
-| `preconditioner` | `none` | No preconditioning â€” raw memory bandwidth test |
+| `preconditioner` | `none` | No preconditioning — raw memory bandwidth test |
 | `cache_optimization` | `enabled` | Cache-aware data access patterns |
 | `memory_alignment` | `64` | 64-byte alignment (cache line boundary) |
 | `prefetch_distance` | `32` | Software prefetch lookahead |
@@ -1029,7 +1029,7 @@ These directories were created by `reorganize_workspace.ps1` but the source file
 
 ---
 
-### `config_serial.cfg` â€” Serial Computation Phase Configuration
+### `config_serial.cfg` — Serial Computation Phase Configuration
 
 | Attribute | Value |
 |-----------|-------|
@@ -1055,15 +1055,15 @@ These directories were created by `reorganize_workspace.ps1` but the source file
 
 ---
 
-### Input Files â€” Simulation Parameter Decks
+### Input Files — Simulation Parameter Decks
 
 All `input_*.in` files define simulation grid dimensions and solver parameters for miniMD/MiniFE runs. They follow a simple key-value format.
 
-#### `input_serial.in` â€” Serial Phase Testing Input
+#### `input_serial.in` — Serial Phase Testing Input
 
 | Parameter | Value | Purpose |
 |-----------|-------|---------|
-| `nx, ny, nz` | `50 Ã— 50 Ã— 50` | Grid dimensions (125,000 cells) |
+| `nx, ny, nz` | `50 × 50 × 50` | Grid dimensions (125,000 cells) |
 | `max_iterations` | `100` | Solver iteration cap |
 | `tolerance` | `1.0e-8` | Convergence tolerance |
 | `force_serial_execution` | `true` | Disable parallel sections |
@@ -1077,14 +1077,14 @@ These files scale the problem size to stress the memory subsystem at increasing 
 
 | File | Grid Size | Iterations | Tolerance | Approx. Atoms |
 |------|-----------|------------|-----------|---------------|
-| `input_memory_1000.in` | 32Â³ | 500 | 1.0e-10 | 32,768 |
-| `input_memory_5000.in` | 32Â³ | 500 | 1.0e-10 | 32,768 |
-| `input_memory_10000.in` | 32Â³ | 500 | 1.0e-10 | 32,768 |
-| `input_memory_50000.in` | 32Â³ | 500 | 1.0e-10 | 32,768 |
-| `input_memory_100000.in` | 32Â³ | 500 | 1.0e-10 | 32,768 |
+| `input_memory_1000.in` | 32³ | 500 | 1.0e-10 | 32,768 |
+| `input_memory_5000.in` | 32³ | 500 | 1.0e-10 | 32,768 |
+| `input_memory_10000.in` | 32³ | 500 | 1.0e-10 | 32,768 |
+| `input_memory_50000.in` | 32³ | 500 | 1.0e-10 | 32,768 |
+| `input_memory_100000.in` | 32³ | 500 | 1.0e-10 | 32,768 |
 | `input_memory_large.in` | (extended) | 500 | 1.0e-10 | (larger) |
 
-> **Note:** The numeric suffixes (1000, 5000, etc.) likely refer to problem scale identifiers rather than grid sizes, as several share the same 32Â³ grid. The `input_memory_large.in` file (345 bytes) contains additional parameters for a larger problem configuration.
+> **Note:** The numeric suffixes (1000, 5000, etc.) likely refer to problem scale identifiers rather than grid sizes, as several share the same 32³ grid. The `input_memory_large.in` file (345 bytes) contains additional parameters for a larger problem configuration.
 
 ---
 
@@ -1112,10 +1112,10 @@ flowchart LR
 ---
 
 
-# 03_scripts/ â€” Scripts Directory
+# 03_scripts/ — Scripts Directory
 
 **Parent:** Repository Root  
-**Purpose:** Manages the operational runtime and infrastructure of the project â€” executing the compiled application, controlling the CPU state, and orchestrating cluster jobs.  
+**Purpose:** Manages the operational runtime and infrastructure of the project — executing the compiled application, controlling the CPU state, and orchestrating cluster jobs.  
 **Usage:** Ensure that bash execution scripts and Python controllers point to the same shared-memory paths and magic numbers used in the compiled C++ code.
 
 ---
@@ -1124,11 +1124,11 @@ flowchart LR
 
 ```
 03_scripts/
-â”œâ”€â”€ README.md                         (808 bytes)
-â”œâ”€â”€ batch_tests/                      (empty â€” files in 07_archive/)
-â”œâ”€â”€ cluster_jobs/
-â”‚   â””â”€â”€ setup_unified_run.sh          (2,406 bytes Â· 60 lines)
-â””â”€â”€ setup/                            (empty â€” placeholder)
+├── README.md                         (808 bytes)
+├── batch_tests/                      (empty — files in 07_archive/)
+├── cluster_jobs/
+│   └── setup_unified_run.sh          (2,406 bytes · 60 lines)
+└── setup/                            (empty — placeholder)
 ```
 
 ---
@@ -1163,11 +1163,11 @@ flowchart LR
 |--------|-------------|-----------|
 | `zane_mpi_comm/mpi_comm/mon.py` | `capstone_run/monitor.py` | Phase-aware frequency controller |
 | `zane_mpi_comm/mpi_comm/dashboard.py` | `capstone_run/dvfs_dashboard.py` | Live TUI dashboard |
-| `zane_mpi_comm/mpi_comm/bridge_to_dashboard.py` | `capstone_run/` | Textâ†”SHM bridge |
+| `zane_mpi_comm/mpi_comm/bridge_to_dashboard.py` | `capstone_run/` | Text↔SHM bridge |
 | `johnnie-comm-phase/miniMD_openmpi` | `capstone_run/` | Compiled miniMD binary |
 | `johnnie-comm-phase/in.lj.miniMD` | `capstone_run/` | Simulation input deck |
 
-**Generated File:** `capstone_run/how_to_run.txt` â€” A quick-start guide with 3-terminal instructions:
+**Generated File:** `capstone_run/how_to_run.txt` — A quick-start guide with 3-terminal instructions:
 1. Terminal 1: Launch dashboard (`python3 dvfs_dashboard.py --cores 32`)
 2. Terminal 2: Run MPI code (start bridge + `mpirun`)
 3. Terminal 3: Optional manual controller (`python3 monitor.py`)
@@ -1232,7 +1232,7 @@ flowchart TB
 ---
 
 
-# 10_build_deploy_runbook.md â€” Build, Deploy, and Operational Runbook
+# 10_build_deploy_runbook.md — Build, Deploy, and Operational Runbook
 
 **Scope:** Complete operational guide for building, deploying, and running the miniMD DVFS system on the CAC Frontenac HPC cluster.
 
@@ -1321,12 +1321,12 @@ bash 03_scripts/cluster_jobs/setup_unified_run.sh
 
 # This creates:
 # capstone_run/
-# â”œâ”€â”€ miniMD_openmpi
-# â”œâ”€â”€ in.lj.miniMD
-# â”œâ”€â”€ monitor.py
-# â”œâ”€â”€ dvfs_dashboard.py
-# â”œâ”€â”€ bridge_to_dashboard.py
-# â””â”€â”€ how_to_run.txt
+# ├── miniMD_openmpi
+# ├── in.lj.miniMD
+# ├── monitor.py
+# ├── dvfs_dashboard.py
+# ├── bridge_to_dashboard.py
+# └── how_to_run.txt
 ```
 
 ---
@@ -1348,7 +1348,7 @@ taskset -c 30 python3 -u ./mon.py \
   --mid-after-ms 5
 ```
 
-#### Terminal 2: miniMD Application (Cores 4â€“29)
+#### Terminal 2: miniMD Application (Cores 4–29)
 ```bash
 export PHASE_HINT_PATH=/dev/shm/minimd_phase_hints_myrun.bin
 
@@ -1378,18 +1378,18 @@ python3 dashboard.py --cores 32 --refresh 0.5 --hint-file "$PHASE_HINT_PATH"
 bash launch_demo.sh
 
 # Layout:
-# â”Œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”
-# â”‚ Pane 0: Monitor (mon.py)  [4 lines] â”‚
-# â”œâ”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¬â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”¤
-# â”‚ Pane 1: mpirun   â”‚ Pane 2: Dashboardâ”‚
-# â”‚ (Cores 4-29)     â”‚ (130 cols wide)  â”‚
-# â””â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”´â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”˜
+# ┌─────────────────────────────────────┐
+# │ Pane 0: Monitor (mon.py)  [4 lines] │
+# ├──────────────────┬──────────────────┤
+# │ Pane 1: mpirun   │ Pane 2: Dashboard│
+# │ (Cores 4-29)     │ (130 cols wide)  │
+# └──────────────────┴──────────────────┘
 ```
 
 **Execution Order:**
 1. Monitor starts first (waits for hint file)
 2. Dashboard starts (waits for hint file)
-3. `mpirun` starts last (creates hint file â†’ monitor and dashboard attach)
+3. `mpirun` starts last (creates hint file → monitor and dashboard attach)
 
 ### 3.3 MPI Run Configurations
 
@@ -1422,7 +1422,7 @@ bash launch_demo.sh
 If the monitor crashes or is killed mid-actuation, worker cores may be permanently stuck in `userspace` governor at low frequency. **Always run cleanup after unexpected termination:**
 
 ```bash
-# cleanup.sh â€” restores all worker cores to performance
+# cleanup.sh — restores all worker cores to performance
 for c in {4..29}; do
     echo 'performance' > "/sys/devices/system/cpu/cpu${c}/cpufreq/scaling_governor" 2>/dev/null || true
 done
@@ -1492,7 +1492,7 @@ python3 analyze_results.py
 | RAPL energy negative | Counter overflow (>80 min) | Correct with modular arithmetic |
 | `mpirun` error: "not enough slots" | Too many ranks requested | Add `--oversubscribe` flag |
 | Checkpoint directory missing | Symlink not created | `ln -s $SLURM_TMPDIR/chk chk` |
-| Dashboard garbled | Terminal too small | Resize to â‰¥130 columns, â‰¥40 rows |
+| Dashboard garbled | Terminal too small | Resize to ≥130 columns, ≥40 rows |
 
 ---
 
@@ -1535,7 +1535,7 @@ rm -rf chk/* 2>/dev/null
 ---
 
 
-# 12_glossary_and_references.md â€” Glossary, Acronyms, and External References
+# 12_glossary_and_references.md — Glossary, Acronyms, and External References
 
 ---
 
@@ -1550,22 +1550,22 @@ rm -rf chk/* 2>/dev/null
 | **Governor** | A Linux `cpufreq` policy that determines how a CPU core selects its operating frequency. Examples: `performance` (always max), `userspace` (manually set), `ondemand` (load-based) |
 | **Actuation** | The act of writing a new frequency or governor setting to the Linux sysfs interface to change CPU behavior |
 | **Worker Core** | A CPU core assigned to run an MPI rank of the miniMD simulation |
-| **Monitor Core** | Core 30 â€” dedicated to running the Python frequency controller (`mon.py`) |
-| **Reserved Core** | Core 31 â€” owned by the HPC system scheduler and never modified by the project |
+| **Monitor Core** | Core 30 — dedicated to running the Python frequency controller (`mon.py`) |
+| **Reserved Core** | Core 31 — owned by the HPC system scheduler and never modified by the project |
 | **Phase Marker** | A text-based phase signaling file (`phase_marker.txt`) used as a fallback when shared-memory protocol is not available |
-| **Bridge** | `bridge_to_dashboard.py` â€” a compatibility layer that translates text-based phase markers into shared-memory `PhaseTable` format |
-| **Test A** | Baseline experiment â€” raw miniMD execution with no monitoring or controller |
-| **Test B** | Baseline with monitoring â€” measures the overhead of the monitoring system alone |
-| **Test C** | Simple controller â€” `comm_freq_controller.py` active, lowers frequency during I/O and communication phases |
-| **Test C2** | Adaptive controller â€” `integrated_freq_controller.py` with beta-adaptation; **abandoned** due to excessive overhead |
+| **Bridge** | `bridge_to_dashboard.py` — a compatibility layer that translates text-based phase markers into shared-memory `PhaseTable` format |
+| **Test A** | Baseline experiment — raw miniMD execution with no monitoring or controller |
+| **Test B** | Baseline with monitoring — measures the overhead of the monitoring system alone |
+| **Test C** | Simple controller — `comm_freq_controller.py` active, lowers frequency during I/O and communication phases |
+| **Test C2** | Adaptive controller — `integrated_freq_controller.py` with beta-adaptation; **abandoned** due to excessive overhead |
 | **Test D** | Extended test matrix with additional parameter combinations |
 | **Checkpoint** | A snapshot of simulation state (positions, velocities, forces) written to disk during the I/O phase |
 | **Stand-in Data** | A configurable amount of synthetic data (default 309 MB) used when runtime-calculated data is smaller than the target |
 | **MPI Loopback** | Rank 0 sends data to itself (`MPI_Isend` + `MPI_Recv` with destination = 0) to simulate network traffic |
 | **Padding Traffic** | Additional MPI send/recv operations after the actual data is transferred, used to sustain the communication phase for a target duration |
-| **Sparkline** | A compact inline chart (`â–â–‚â–ƒâ–„â–…â–†â–‡â–ˆ`) used in the TUI dashboard to show frequency history |
+| **Sparkline** | A compact inline chart (`▁▂▃▄▅▆▇█`) used in the TUI dashboard to show frequency history |
 | **Pareto Frontier** | The set of configurations where no other configuration is better in both energy and performance simultaneously |
-| **Energy-Delay Product (EDP)** | A combined metric: `Energy (J) Ã— Time (s)` â€” lower is better |
+| **Energy-Delay Product (EDP)** | A combined metric: `Energy (J) × Time (s)` — lower is better |
 
 ---
 
@@ -1590,7 +1590,7 @@ rm -rf chk/* 2>/dev/null
 | **ADR** | Architecture Decision Record |
 | **CLI** | Command-Line Interface |
 | **CSV** | Comma-Separated Values |
-| **GPIO** | (Not used â€” but referenced) General Purpose I/O |
+| **GPIO** | (Not used — but referenced) General Purpose I/O |
 | **PID** | (Controller context) Proportional-Integral-Derivative control |
 | **PID** | (OS context) Process Identifier |
 | **EPYC** | AMD's server processor brand (used in Frontenac) |
@@ -1622,8 +1622,8 @@ rm -rf chk/* 2>/dev/null
 |----------|-------|----------|---------|
 | `PHASE_MAGIC` | `0x50485331` ("PHS1") | integrate.cpp, mon.py, dashboard.py, bridge.py | Validates that shared-memory file contains a valid PhaseTable |
 | `MAX_PHASE_SLOTS` | `64` | All shared-memory consumers | Maximum MPI ranks supported |
-| `RESERVED_CORE` | `31` | mon.py, dashboard.py | HPC system core â€” never modify |
-| `MONITOR_CORE` | `30` | mon.py, dashboard.py | Monitor process core â€” never throttle |
+| `RESERVED_CORE` | `31` | mon.py, dashboard.py | HPC system core — never modify |
+| `MONITOR_CORE` | `30` | mon.py, dashboard.py | Monitor process core — never throttle |
 | `MAX_MHZ` | `3600.0` | dashboard.py | Maximum frequency for bar chart scaling |
 | `DEFAULT_COMM_TARGET_DURATION_SEC` | `30.0` | integrate.cpp | Default target for communication phase duration |
 | `DEFAULT_COMM_SLEEP_US` | `0` | integrate.cpp | No sleep between communication chunks |
@@ -1666,16 +1666,16 @@ rm -rf chk/* 2>/dev/null
 
 | Resource | URL / Reference |
 |----------|----------------|
-| miniMD | Mantevo Project â€” https://mantevo.org |
+| miniMD | Mantevo Project — https://mantevo.org |
 | OpenMPI | https://www.open-mpi.org |
 | CAC Frontenac | Queen's University Centre for Advanced Computing |
 | Linux cpufreq | https://www.kernel.org/doc/html/latest/admin-guide/pm/cpufreq.html |
-| Intel RAPL | Running Average Power Limit â€” https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/advisory-guidance/running-average-power-limit-energy-reporting.html |
+| Intel RAPL | Running Average Power Limit — https://www.intel.com/content/www/us/en/developer/articles/technical/software-security-guidance/advisory-guidance/running-average-power-limit-energy-reporting.html |
 | Seqlock Algorithm | https://en.wikipedia.org/wiki/Seqlock |
-| Velocity-Verlet | Numerical integration for molecular dynamics â€” Verlet, L. (1967) |
-| Lennard-Jones Potential | Intermolecular potential: V(r) = 4Îµ[(Ïƒ/r)Â¹Â² âˆ’ (Ïƒ/r)â¶] |
-| Amdahl's Law | Speedup limited by serial fraction: S(N) = 1 / (s + (1âˆ’s)/N) |
-| SLURM | Simple Linux Utility for Resource Management â€” https://slurm.schedmd.com |
+| Velocity-Verlet | Numerical integration for molecular dynamics — Verlet, L. (1967) |
+| Lennard-Jones Potential | Intermolecular potential: V(r) = 4ε[(σ/r)¹² − (σ/r)⁶] |
+| Amdahl's Law | Speedup limited by serial fraction: S(N) = 1 / (s + (1−s)/N) |
+| SLURM | Simple Linux Utility for Resource Management — https://slurm.schedmd.com |
 
 ---
 
@@ -1689,7 +1689,7 @@ rm -rf chk/* 2>/dev/null
 | Valerie So | I/O Benchmarking | 20291603 | 20wyvs |
 
 **Supervisor:** Dr. Ryan Grant  
-**Course:** ELEC 490/498 â€” Capstone Project  
+**Course:** ELEC 490/498 — Capstone Project  
 **Institution:** Queen's University, Kingston, Ontario, Canada
 
 
