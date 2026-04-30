@@ -199,9 +199,6 @@ stateDiagram-v2
 ```
 ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 ├── 00_architecture_docs/    [NEW] Software architecture documentation
-├── 01_docs/                 Formal reports, guides, and reference materials
-│   ├── reports/             Final capstone reports (ELEC 490 Reports 1 & 2)
-│   └── guides/              Testing guides and command references
 ├── 02_src/                  Production source code (curated final versions)
 │   ├── comm_phase_version/  C++ source with communication phase (Johnnie)
 │   ├── mpi_comm_version/    C++ source with MPI comm + shared-memory hints (Zane)
@@ -213,12 +210,12 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 │   ├── cluster_jobs/        SLURM job submission and environment setup
 │   └── setup/               Environment setup scripts (placeholder)
 ├── 04_configs/              Configuration files and simulation inputs
-├── 05_data/                 Telemetry dumps and experimental results
+├── 05_data/                 [UNTRACKED] Telemetry dumps and experimental results (local only)
 │   ├── raw_results/         Unprocessed hardware measurement logs
 │   ├── processed/           Extracted and cleaned datasets
 │   ├── synthetic/           Generated synthetic datasets
 │   └── misc/                Git diffs, pull results
-├── 06_outputs/              Analytics, figures, and generated reports
+├── 06_outputs/              [UNTRACKED] Analytics, figures, and generated reports (local only)
 │   ├── 02_performance_analysis_sweep/  Frequency scaling study
 │   ├── final_figures/       Publication-quality figures (fig01–fig14)
 │   └── supplementary_plots/ Supporting visualizations (plot01–plot13)
@@ -242,16 +239,6 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 
 ---
 
-## 8. Team Responsibility Matrix
-
-| Team Member | Phase | Key Contributions |
-|-------------|-------|-------------------|
-| **Johnnie Tse** | Communication Phase | `integrate.cpp` comm phase injection, `comm_freq_controller.py`, batch tests, data analysis, workspace reorganization |
-| **Gia Lee** | I/O (Storage) Phase | `integrate.cpp` sustained I/O checkpoint, `monitoring.py`, per-rank scaling |
-| **Zane Prance** | MPI Communication | `mon.py` phase-aware controller, `dashboard.py` TUI, shared-memory protocol, `bridge_to_dashboard.py`, beta-adaptation algorithm |
-| **Valerie So** | I/O Benchmarking | `val_testing/` benchmark suite, multi-core I/O scaling scripts, baseline measurements |
-
----
 
 ## 9. Security and Access Model
 
@@ -298,8 +285,8 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 | [02_src_directory.md](02_src_directory.md) | Source code deep-dive, class hierarchy, API reference |
 | [03_scripts_directory.md](03_scripts_directory.md) | Batch test scripts and cluster job automation |
 | [04_configs_directory.md](04_configs_directory.md) | Configuration files and simulation parameters |
-| [05_data_directory.md](05_data_directory.md) | Raw telemetry, processed data, synthetic datasets |
-| [06_outputs_directory.md](06_outputs_directory.md) | Performance reports, figures, supplementary plots |
+| [05_data_directory.md](05_data_directory.md) | [UNTRACKED] Raw telemetry, processed data, synthetic datasets |
+| [06_outputs_directory.md](06_outputs_directory.md) | [UNTRACKED] Performance reports, figures, supplementary plots |
 | [07_archive_branches.md](07_archive_branches.md) | All 8 archived development branches |
 | [08_test_gui_directory.md](08_test_gui_directory.md) | Dashboard implementations |
 | [09_data_flow_and_ipc.md](09_data_flow_and_ipc.md) | Shared-memory protocol specification |
@@ -1401,7 +1388,6 @@ bash launch_demo.sh
 | 8 | `-np 8` | `taskset -c 4-11` | 8 ranks |
 | 16 | `-np 16` | `taskset -c 4-19` | 16 ranks (max power-of-2) |
 | 26 | `-np 26` | `taskset -c 4-29` | 26 ranks (typical demo) |
-| 30 | `-np 30` | `taskset -c 0-29` | 30 ranks (absolute max) |
 
 ### 3.4 CLI Flags (miniMD)
 

@@ -12,3 +12,6 @@ large_files.txt
 push_log.txt
 00_architecture_docs/
 01_docs/
+
+05_data/
+06_outputs/
