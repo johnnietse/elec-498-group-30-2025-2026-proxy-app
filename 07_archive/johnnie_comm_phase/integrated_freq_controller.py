@@ -12,7 +12,7 @@ Core Layout (32-core node):
   Core 30:    MONITOR   — this controller runs here (pinned via taskset)
   Cores 0–N:  WORKERS   — MPI processes, 1:1 core-binding
 
-  Valid worker counts: 1, 2, 4, 8, 16, 30
+  Valid worker counts: 1, 2, 4, 8, 16, 26, 30
   (30 = max because core 30 = monitor, core 31 = reserved)
   (16 = max power of 2)
 
