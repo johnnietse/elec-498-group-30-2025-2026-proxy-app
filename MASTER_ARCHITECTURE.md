@@ -1,4 +1,4 @@
-# MASTER_ARCHITECTURE.md � Comprehensive Technical Documentation
+# MASTER_ARCHITECTURE.md — Comprehensive Technical Documentation
 
 
 > This document is automatically compiled from the 00_architecture_docs directory. It serves as the single source of truth for all technical implementation details, IPC protocols, execution workflows, and diagrams for the miniMD Phase-Aware DVFS Optimization project.
@@ -13,7 +13,6 @@
 **Authors:** Johnnie Tse, Gia Lee, Zane Prance, Valerie So  
 **Supervisor:** Dr. Ryan Grant  
 **Platform:** CAC Frontenac HPC Cluster (AMD EPYC 7551P, 32 cores)  
-**Last Updated:** 2026-04-22  
 
 ---
 
@@ -86,9 +85,9 @@ flowchart TB
 
 | Core(s) | Role | Process | Changeable? |
 |---------|------|---------|-------------|
-| `0 – N` | Worker Cores | MPI ranks (1:1 core binding) | ✅ Frequency controlled |
-| `30` | Monitor Core | `mon.py` / `comm_freq_controller.py` | ❌ Pinned to `performance` |
-| `31` | Reserved | HPC system maintenance | ❌ No permission to modify |
+| `0 – N` | Worker Cores | MPI ranks (1:1 core binding) | âœ… Frequency controlled |
+| `30` | Monitor Core | `mon.py` / `comm_freq_controller.py` | âŒ Pinned to `performance` |
+| `31` | Reserved | HPC system maintenance | âŒ No permission to modify |
 
 **Valid Worker Counts:** 1, 2, 4, 8, 16, 26, 30  
 - Maximum: 30 cores (core 30 = monitor, core 31 = reserved)  
@@ -296,7 +295,6 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 
 | Document | Coverage |
 |----------|----------|
-| [01_docs_directory.md](01_docs_directory.md) | Formal reports and testing guides |
 | [02_src_directory.md](02_src_directory.md) | Source code deep-dive, class hierarchy, API reference |
 | [03_scripts_directory.md](03_scripts_directory.md) | Batch test scripts and cluster job automation |
 | [04_configs_directory.md](04_configs_directory.md) | Configuration files and simulation parameters |
@@ -883,13 +881,13 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 │ │ ▁▂▃▄▅▆▇█▇▆▅▄▃▂▁▂▃▄▅▆▇█  1800 MHz           │  │
 │ └──────────────────────────────────────────────┘  │
 │ ┌ Per-Core Frequency ────────┐ ┌ App Phases ──┐  │
-│ │ cpu00 2000 P ████████████░ │ │ Phase totals │  │
-│ │ cpu01 2000 P ████████████░ │ │ COMPUTE  16  │  │
-│ │ cpu02 1200 U ██████░░░░░░░ │ │ IO        0  │  │
+│ │ cpu00 2000 P ████████████â–‘ │ │ Phase totals │  │
+│ │ cpu01 2000 P ████████████â–‘ │ │ COMPUTE  16  │  │
+│ │ cpu02 1200 U ██████â–‘â–‘â–‘â–‘â–‘â–‘â–‘ │ │ IO        0  │  │
 │ │ ...                        │ │              │  │
-│ │ cpu29 1200 U ██████░░░░░░░ │ │ Rank → core  │  │
-│ │ cpu30 2000 P ████████████░ │ │ rank 00→cpu04│  │
-│ │ cpu31 2000 P ████████████░ │ │ rank 01→cpu05│  │
+│ │ cpu29 1200 U ██████â–‘â–‘â–‘â–‘â–‘â–‘â–‘ │ │ Rank → core  │  │
+│ │ cpu30 2000 P ████████████â–‘ │ │ rank 00→cpu04│  │
+│ │ cpu31 2000 P ████████████â–‘ │ │ rank 01→cpu05│  │
 │ └────────────────────────────┘ └──────────────┘  │
 └──────────────────────────────────────────────────┘
 ```
@@ -899,7 +897,7 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 | Element | Implementation |
 |---------|---------------|
 | Sparkline (`▁▂▃▄▅▆▇█`) | 120-sample sliding window of average MHz |
-| Frequency bars (`████░░░░`) | Proportional fill against `MAX_MHZ = 3600` |
+| Frequency bars (`████â–‘â–‘â–‘â–‘`) | Proportional fill against `MAX_MHZ = 3600` |
 | Governor shorthand | `P` = performance, `U` = userspace |
 | Color scheme | Red = <1400 MHz, Yellow = <2200 MHz, Green = ≥2200 MHz |
 
