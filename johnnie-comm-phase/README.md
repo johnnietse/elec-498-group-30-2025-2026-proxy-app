@@ -5,7 +5,7 @@
 This directory contains a modified version of miniMD with an additional **communication phase** 
 that runs after Gia's I/O checkpoint. The communication phase simulates network data transfer 
 by having **only MPI rank 0** send/receive the total checkpoint payload through MPI loopback, 
-while all other ranks wait at `MPI_Barrier`.
+while all other ranks wait at `MPI_Barrier`. Any graphs in this directory are not the latest graphs that are in the final report but are there to see what kinds of graphs shall we draft for the final report for comparison..
 
 ## Core Layout (32-core node)
 
