@@ -786,13 +786,13 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 
 ---
 
-### `mon.py` — Phase-Aware Frequency Controller (Zane)
+### `mon.py` — Phase-Aware Frequency Controller (Johnnie and Zane)
 
 | Attribute | Value |
 |-----------|-------|
 | Size | 5,363 bytes (178 lines) |
 | Language | Python 3 |
-| Author | Zane Prance |
+| Author | Johnnie Tse and Zane Prance|
 | Method | Shared-memory seqlock reader + cpufreq sysfs writer |
 | IPC | Reads `PhaseTable` from `/dev/shm/minimd_phase_hints.bin` |
 
@@ -832,13 +832,13 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 
 ---
 
-### `dashboard.py` — Live Terminal Dashboard (Zane)
+### `dashboard.py` — Live Terminal Dashboard (Zane and Johnnie)
 
 | Attribute | Value |
 |-----------|-------|
 | Size | 11,248 bytes (339 lines) |
 | Language | Python 3 |
-| Author | Zane Prance |
+| Author | Johnnie Tse and Zane Prance |
 | Framework | `curses` (terminal UI) |
 | Input | Shared-memory phase hints + `/sys/devices/system/cpu/*/cpufreq/` |
 
@@ -892,13 +892,13 @@ t_s, dt_s, ranks, wchar_MBps, phase, power_W
 
 ---
 
-### `bridge_to_dashboard.py` — Text-to-Shared-Memory Bridge (Zane)
+### `bridge_to_dashboard.py` — Text-to-Shared-Memory Bridge (Johnnie and Zane)
 
 | Attribute | Value |
 |-----------|-------|
 | Size | 3,462 bytes (97 lines) |
 | Language | Python 3 |
-| Author | Zane Prance |
+| Author | Johnnie Tse and Zane Prance |
 | Purpose | Translates text-based `phase_marker.txt` signals → shared-memory `PhaseTable` format |
 
 **Architecture:** A compatibility layer. When the C++ application writes phase changes to `phase_marker.txt` (e.g., `"COMM_START"`, `"IO_END"`), this bridge reads the text file at 50ms intervals and writes the corresponding phase codes to the shared-memory hint file.
@@ -1658,9 +1658,9 @@ rm -rf chk/* 2>/dev/null
 
 | Name | Role | Student ID | NetID |
 |------|------|-----------|-------|
-| Johnnie Tse | Communication Phase | 20366054 | 22yht |
+| Johnnie Tse | Communication Phase, MPI Communication Controller | 20366054 | 22yht |
 | Gia Lee | I/O (Storage) Phase | 20231785 | 19jl253 |
-| Zane Prance | MPI Communication Controller | 20233463 | 20zdtp |
+| Zane Prance | Dashboard, computation, controller | 20233463 | 20zdtp |
 | Valerie So | I/O Benchmarking | 20291603 | 20wyvs |
 
 **Supervisor:** Dr. Ryan Grant  
