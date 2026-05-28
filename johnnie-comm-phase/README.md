@@ -34,7 +34,7 @@ Valid worker counts: 1, 2, 4, 8, 16, 30
 | File | Purpose |
 |------|---------|
 | `comm_freq_controller.py` | Simple comm-phase frequency controller |
-| `integrated_freq_controller.py` | Full controller: Zane's β-adaptation + Johnnie's comm phase |
+| `integrated_freq_controller.py` | Full controller: Johnnie's β-adaptation + Johnnie's comm phase |
 | `run_freq_tests.sh` | Tests at 1.2/1.6/2.0 GHz with configurable worker counts |
 | `verify_file_sizes.py` | Verifies per-rank/total data sizes for all configurations |
 | `ON_CLUSTER_TESTING_GUIDE.md` | Step-by-step guide for HPC testing |
