@@ -445,7 +445,7 @@ Examples:
     log_file = None
     if args.log:
         log_file = open(args.log, 'w')
-        log_file.write("timestamp,phase,rank0_freq,other_freq,data_bytes,beta_avg\n")
+        log_file.write("ti-mestamp,phase,rank0_freq,other_freq,data_bytes,beta_avg\n")
 
     # Phase state
     current_phase = "COMPUTE"     # Start in compute mode
