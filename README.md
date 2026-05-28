@@ -7,7 +7,8 @@
 **Platform:** CAC Frontenac HPC Cluster (AMD EPYC 7551P, 32 cores)  
 
 ---
-Take a look of the thesis/research report here: [Open .docx version of the report](ELEC 49X Group 30 Final Report.docx) or [Open .docx version of the report](ELEC 49X Group 30 Final Report.pdf)
+Take a look of the thesis/research report here: [Open .docx version of the report](ELEC 49X Group 30 Final Report.docx) 
+or [Open .pdf version of the report](ELEC 49X Group 30 Final Report.pdf)
 
 ---
 
