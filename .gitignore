@@ -10,8 +10,9 @@ __pycache__/
 *checkpoint*/
 large_files.txt
 push_log.txt
-00_architecture_docs/
+00_architecture_docs/01_docs_directory.md
 01_docs/
+scratch_docx_extract*
+*.pdf
+06_outputs/report_improvements/
 
-05_data/
-06_outputs/
