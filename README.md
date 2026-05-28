@@ -7,6 +7,9 @@
 **Platform:** CAC Frontenac HPC Cluster (AMD EPYC 7551P, 32 cores)  
 
 ---
+Take a look of the thesis/research report here: [Open .docx version of the report](ELEC_49X_Group_30_Final_Report.docx) or [Open .pdf version of the report](ELEC_49X_Group_30_Final_Report.pdf)
+
+---
 
 ## 1. Executive Summary
 
@@ -273,3 +276,8 @@ ELEC_498_All_directories_and_branches_folder_for_2026_02_15/
 | [10_build_deploy_runbook.md](10_build_deploy_runbook.md) | Build, deploy, and operational procedures |
 | [11_root_level_files.md](11_root_level_files.md) | Root-level file documentation |
 | [12_glossary_and_references.md](12_glossary_and_references.md) | Terminology and external references |
+
+
+## Youtube URL for taking a look of the demo
+https://youtu.be/_FUmeGwr2AY?si=cDPd00RSed5iWJ0Y
+
