@@ -166,7 +166,7 @@ sequenceDiagram
     Mon->>Mon: age_ms = (now - t_ns) / 1e6
     Mon->>Mon: desired_policy(COMMUNICATE, age_ms)
     
-    alt age_ms >= 5.0
+    alt age_ms greater than or equal to 5.0
         Mon->>Mon: Return (userspace, 1600000)
         Mon-->>OS: Write scaling_governor = userspace
         Mon-->>OS: Write scaling_setspeed = 1600000
@@ -192,19 +192,19 @@ sequenceDiagram
     R0->>SHM: open(O_CREAT | O_RDWR | O_TRUNC)
     R0->>SHM: ftruncate(sizeof(PhaseTable))
     R0->>SHM: mmap(PROT_READ|PROT_WRITE, MAP_SHARED)
-    R0->>SHM: memset(0); magic=0x50485331; nslots=N
+    R0->>SHM: memset(0), magic=0x50485331, nslots=N
     R0->>SHM: msync(MS_SYNC)
-    R0->>SHM: munmap(); close()
+    R0->>SHM: munmap(), close()
     
     Note over R0,RN: MPI_Barrier()
     
-    R0->>SHM: open(O_RDWR); mmap()
-    RN->>SHM: open(O_RDWR); mmap()
+    R0->>SHM: open(O_RDWR), mmap()
+    RN->>SHM: open(O_RDWR), mmap()
     R0->>SHM: phase_hint_write(PHASE_COMPUTE)
     RN->>SHM: phase_hint_write(PHASE_COMPUTE)
     
     Mon->>SHM: Wait for file existence
-    Mon->>SHM: open(); mmap(ACCESS_WRITE)
+    Mon->>SHM: open(), mmap(ACCESS_WRITE)
     Mon->>SHM: Wait for magic == 0x50485331
     Note over Mon: Attached and monitoring
 ```
