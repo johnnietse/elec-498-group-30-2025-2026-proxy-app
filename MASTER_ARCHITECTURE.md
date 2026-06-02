@@ -36,27 +36,27 @@ flowchart TB
         direction TB
         
         subgraph AppLayer["Application Layer (Cores 0–N)"]
-            miniMD["miniMD_openmpi<br/>(C++ / MPI)"]
-            IO["I/O Checkpoint<br/>Phase (Gia)"]
-            COMM["Communication<br/>Phase (Johnnie)"]
+            miniMD["miniMD_openmpi (C++ / MPI)"]
+            IO["I/O Checkpoint Phase (Gia)"]
+            COMM["Communication Phase (Johnnie)"]
             miniMD --> IO --> COMM
         end
 
         subgraph IPCLayer["IPC Layer (/dev/shm)"]
-            SHM["/dev/shm/minimd_phase_hints.bin<br/>(PhaseTable · Lock-Free Seqlock)"]
+            SHM["/dev/shm/minimd_phase_hints.bin (PhaseTable · Lock-Free Seqlock)"]
         end
 
         subgraph ControlLayer["Control Layer (Core 30)"]
-            MON["mon.py<br/>Phase Monitor +<br/>Frequency Controller"]
+            MON["mon.py Phase Monitor + Frequency Controller"]
         end
 
         subgraph KernelLayer["Kernel Interface"]
-            SYSFS["/sys/devices/system/cpu/cpuN/cpufreq/<br/>scaling_governor · scaling_setspeed"]
-            RAPL["/sys/class/powercap/intel-rapl/<br/>energy_uj (RAPL Counters)"]
+            SYSFS["/sys/devices/system/cpu/cpuN/cpufreq/ scaling_governor · scaling_setspeed"]
+            RAPL["/sys/class/powercap/intel-rapl/ energy_uj (RAPL Counters)"]
         end
 
         subgraph ObsLayer["Observability Layer (Tmux Pane)"]
-            DASH["dashboard.py<br/>(curses TUI)"]
+            DASH["dashboard.py (curses TUI)"]
         end
 
         miniMD -->|"phase_hint_write()"| SHM
@@ -67,7 +67,7 @@ flowchart TB
     end
 
     subgraph Reserved["Core 31 · RESERVED"]
-        HPC_MAINT["HPC System<br/>Maintenance"]
+        HPC_MAINT["HPC System Maintenance"]
     end
 
     style HPC_Node fill:#0d1117,stroke:#30363d,color:#e6edf3
@@ -545,7 +545,7 @@ For backward compatibility or simplified deployments, a text-based alternative e
 flowchart LR
     APP["miniMD"] -->|"write text"| FILE["phase_marker.txt"]
     FILE -->|"poll every 50ms"| BRIDGE["bridge_to_dashboard.py"]
-    BRIDGE -->|"write PhaseTable"| SHM["/dev/shm/<br/>minimd_phase_hints.bin"]
+    BRIDGE -->|"write PhaseTable"| SHM["/dev/shm/ minimd_phase_hints.bin"]
     SHM -->|"mmap() read"| DASH["dashboard.py"]
     
     style BRIDGE fill:#161b22,stroke:#f0883e,color:#e6edf3

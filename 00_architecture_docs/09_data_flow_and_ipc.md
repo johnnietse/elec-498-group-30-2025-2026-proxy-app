@@ -255,7 +255,7 @@ For backward compatibility or simplified deployments, a text-based alternative e
 flowchart LR
     APP["miniMD"] -->|"write text"| FILE["phase_marker.txt"]
     FILE -->|"poll every 50ms"| BRIDGE["bridge_to_dashboard.py"]
-    BRIDGE -->|"write PhaseTable"| SHM["/dev/shm/<br/>minimd_phase_hints.bin"]
+    BRIDGE -->|"write PhaseTable"| SHM["/dev/shm/ minimd_phase_hints.bin"]
     SHM -->|"mmap() read"| DASH["dashboard.py"]
     
     style BRIDGE fill:#161b22,stroke:#f0883e,color:#e6edf3

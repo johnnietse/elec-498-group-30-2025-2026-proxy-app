@@ -165,11 +165,11 @@ These plots provide deeper analytical views. Generated alongside the final figur
 
 ```mermaid
 flowchart LR
-    RAW["05_data/raw_results/"] -->|"parse"| SCRIPT["02_src/analysis/<br/>regenerate_all_plots_v4.py"]
+    RAW["05_data/raw_results/"] -->|"parse"| SCRIPT["02_src/analysis/ regenerate_all_plots_v4.py"]
     PROC["05_data/processed/"] -->|"parse"| SCRIPT
-    SCRIPT -->|"matplotlib"| FIG["06_outputs/final_figures/<br/>fig01–fig14.png"]
-    SCRIPT -->|"matplotlib"| PLOT["06_outputs/supplementary_plots/<br/>plot01–plot13.png"]
-    SCRIPT -->|"markdown"| REPORT["06_outputs/02_performance_analysis_sweep/<br/>performance_report.md"]
+    SCRIPT -->|"matplotlib"| FIG["06_outputs/final_figures/ fig01–fig14.png"]
+    SCRIPT -->|"matplotlib"| PLOT["06_outputs/supplementary_plots/ plot01–plot13.png"]
+    SCRIPT -->|"markdown"| REPORT["06_outputs/02_performance_analysis_sweep/ performance_report.md"]
     
     style SCRIPT fill:#161b22,stroke:#3fb950,color:#e6edf3
     style FIG fill:#161b22,stroke:#1f6feb,color:#e6edf3

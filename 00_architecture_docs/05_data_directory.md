@@ -148,10 +148,10 @@
 
 ```mermaid
 flowchart LR
-    CLUSTER["CAC Frontenac<br/>Cluster"] -->|"perf stat /<br/>RAPL output"| RAW["05_data/raw_results/"]
+    CLUSTER["CAC Frontenac Cluster"] -->|"perf stat / RAPL output"| RAW["05_data/raw_results/"]
     GEN["generate_synthetic_data.py"] -->|"output"| SYNTH["05_data/synthetic/"]
     RAW -->|"manual extraction"| PROC["05_data/processed/"]
-    RAW -->|"read by"| ANALYSIS["02_src/analysis/<br/>regenerate_all_plots_v4.py"]
+    RAW -->|"read by"| ANALYSIS["02_src/analysis/ regenerate_all_plots_v4.py"]
     PROC -->|"read by"| ANALYSIS
     SYNTH -->|"read by"| ANALYSIS
     ANALYSIS -->|"generates"| OUTPUTS["06_outputs/"]

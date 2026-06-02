@@ -10,13 +10,13 @@
 
 ```mermaid
 flowchart TB
-    MAIN["main_repo<br/>(Original Placeholder)"] --> GIA_F["gia_final<br/>(I/O Checkpoint + Monitor)"]
-    GIA_F --> GIA_S["gia_scaling_io<br/>(I/O Scaling + Freq Monitor)"]
-    GIA_S --> JOHNNIE_C["johnnie_comm_phase<br/>(Communication Phase)"]
-    MAIN --> JOHNNIE_S["johnnie_serial_memory_phase<br/>(Serial/Memory Analysis)"]
-    MAIN --> ZANE_P["zane_prototype<br/>(Early Prototype)"]
-    ZANE_P --> ZANE_M["zane_mpi_comm<br/>(MPI Comm Controller)"]
-    MAIN --> VAL["val_testing<br/>(I/O Benchmarks)"]
+    MAIN["main_repo (Original Placeholder)"] --> GIA_F["gia_final (I/O Checkpoint + Monitor)"]
+    GIA_F --> GIA_S["gia_scaling_io (I/O Scaling + Freq Monitor)"]
+    GIA_S --> JOHNNIE_C["johnnie_comm_phase (Communication Phase)"]
+    MAIN --> JOHNNIE_S["johnnie_serial_memory_phase (Serial/Memory Analysis)"]
+    MAIN --> ZANE_P["zane_prototype (Early Prototype)"]
+    ZANE_P --> ZANE_M["zane_mpi_comm (MPI Comm Controller)"]
+    MAIN --> VAL["val_testing (I/O Benchmarks)"]
     
     style JOHNNIE_C fill:#161b22,stroke:#3fb950,color:#e6edf3
     style ZANE_M fill:#161b22,stroke:#1f6feb,color:#e6edf3
