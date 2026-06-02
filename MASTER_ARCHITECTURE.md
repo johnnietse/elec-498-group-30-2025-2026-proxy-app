@@ -460,7 +460,7 @@ sequenceDiagram
         Mon->>Mon: Return (userspace, 1600000)
         Mon-->>OS: Write scaling_governor = userspace
         Mon-->>OS: Write scaling_setspeed = 1600000
-    else age_ms < 5.0
+    else age_ms less than 5.0
         Mon->>Mon: Return (performance, None)
         Note over Mon: No action (too young)
     end
