@@ -107,14 +107,14 @@ flowchart TB
 | Session Manager | tmux | Multi-pane demo launcher (`launch_demo.sh`) |
 
 ---
-
+<!--
 | Team Member | Phase | Key Contributions |
 |-------------|-------|-------------------|
-| **Johnnie Tse** | Communication Phase | `integrate.cpp`, comm phase injection, `comm_freq_controller.py` phase aware controller, 'integrated_freq_controller.py' phase aware controller with beta-adaptation algorithm, batch tests, data analysis, workspace reorganization, fixing dashboard related issues, problems, design, and alignment, etc. , basically anything associated with communication, `dashboard.py` TUI, shared-memory protocol, `bridge_to_dashboard.py`, beta-adaptation algorithm |
+| **Johnnie Tse** | Communication Phase | `integrate.cpp` for comm phase injection, `comm_freq_controller.py` phase aware controller, 'integrated_freq_controller.py' phase aware controller with beta-adaptation algorithm, batch tests for collecting data, data analysis, workspace reorganization, fixing dashboard related issues, problems, design, and alignment, etc. , basically anything associated with communication, `dashboard.py` TUI, shared-memory protocol, `bridge_to_dashboard.py`, beta-adaptation algorithm |
 | **Gia Lee** | I/O (Storage) Phase | `integrate.cpp` sustained I/O checkpoint, `monitoring.py`, per-rank scaling |
 | **Zane Prance** | MPI Communication | `mon.py` phase-aware controller, `dashboard.py` TUI, shared-memory protocol, `bridge_to_dashboard.py`, beta-adaptation algorithm |
 | **Valerie So** | I/O Benchmarking | `val_testing/` benchmark suite, multi-core I/O scaling scripts, baseline measurements |
-
+-->
 ---
 
 ## 5. Component Interaction Model
